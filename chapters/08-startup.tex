@@ -1,0 +1,96 @@
+\chapter{机器人开机与程序启动}
+\setchapterheader{第八章\quad 机器人开机与程序启动}
+\begin{intro}
+\begin{itemize}
+\item 完成第 6、7 步：准备机器人、开机、从正确目录启动例程。
+\item 结合终端日志、网络与手柄数据判断启动是否完成。
+\end{itemize}
+\end{intro}
+软件环境准备好后，就可以开机并启动程序了。先把机器人放置在吊架上，完成开机和回零；再从 SDK 根目录启动程序，观察模型加载、硬件状态和手柄输入。
+
+\section{第 6 步：开机与放置机器人}
+\label{step:6}
+开机时让机器人面朝上平躺，或在吊架上保持稳定姿态。程序中的零位姿态称为 \code{LIE}，后面会用手柄从这个模式进入站立。
+
+
+\subsection*{操作步骤}
+
+\begin{enumerate}
+\item 吊架安装/平整防滑地面，清出约 3m$\times$3m 无杂物区域。
+\item 电池插入后背电池仓，确认卡扣锁定。
+\item 短按一次电池开关，确认电池指示灯亮起；随后\textbf{长按电池开关直至出现流水灯效果}，等待完成开机。
+\item 开机后 Bumi 自动进入\textbf{全身使能模式}，所有关节自动回零位——过程中\textbf{不要触碰、阻挡关节}；也不要把关节卡在限位位置开机（有烧机风险）。
+\item 让机器人保持仰卧（面朝上平躺）或吊挂姿态，等待程序控制。
+
+\end{enumerate}
+\begin{expected}
+\begin{itemize}
+\item 机器人开机完成，关节自动回零，处于使能趴卧状态，网络可达（第 4 步 ping 通）。
+
+\end{itemize}
+\end{expected}
+\subsection*{常见问题}
+\begin{faq}{开机时关节被地面/杂物卡住、异响}
+立即长按电池开关关机检查；开机姿势务必面朝上平躺、四肢自然摆放，脚底无异物。
+\end{faq}
+\begin{faq}{关节回零时机器人被拽动}
+全身使能回零过程请勿干预，否则初始化失败需重启。
+\end{faq}
+\begin{faq}{电池电量低/告警}
+低电量会导致运控异常甚至失控，先充满电再跑策略；程序里也可从 \code{bms_data.battery_soc} 读取电量。
+\end{faq}
+
+
+\section{第 7 步：启动策略程序}
+\label{step:7}
+工作目录决定相对路径能否解析。始终在 SDK 根目录启动；模型加载成功后，再结合硬件状态与手柄输入判断控制链路是否完整。
+
+
+\subsection*{操作步骤}
+\begin{enumerate}
+\item \textbf{必须从 SDK 根目录启动}（程序用相对路径找 \code{build/}、\code{config/dds.xml}、\code{policy/}）：
+
+\end{enumerate}
+\begin{command}
+conda activate bumi_deploy
+cd ~/noetix_sdk_bumi
+python -c "import sys; print(sys.executable)"
+python examples/py/test_policy.py
+\end{command}
+
+\begin{enumerate}[resume]
+\item 保持终端在前台运行，不要让笔记本休眠/降频（建议插电源、设置 Performance 电源模式）。
+
+\end{enumerate}
+\begin{expected}
+（终端依次打印）
+\begin{command}
+cur path is file:///home/<用户>/noetix_sdk_bumi/config/dds.xml
+Load Onnx model from path: /home/<用户>/noetix_sdk_bumi/policy/policy.onnx
+Load Onnx run model successfully !!!
+\end{command}
+\begin{itemize}
+\item 程序常驻运行（目标 500Hz 主循环），初始模式为 DEFAULT，等待手柄指令。该模式下发低阻尼指令，机器人由吊架支撑。
+\item 模式切换时会打印日志；策略模式会打印观测数值（见第 8 步）。当前代码未在正常策略循环中复位 \code{isChangeMode_}，因此观测打印可能重复出现。
+
+\end{itemize}
+\end{expected}
+\subsection*{常见问题}
+\begin{faq}{\code{ModuleNotFoundError: lowcontrol_py}}
+检查是否已激活构建时的 bumi\_deploy 环境、是否在 SDK 根目录、build 内是否有对应扩展。参见第 3 步和第\,\ref{sec:conda-build}\,节；若变更过 Python，应重新配置并编译。
+\end{faq}
+\begin{faq}{\code{FileNotFoundError: config/dds.xml} 或 CYCLONEDDS 连不上}
+同上，工作目录不对；确认 \code{CYCLONEDDS_URI} 打印为 \code{file://<SDK_ROOT>/config/dds.xml}。
+\end{faq}
+\begin{faq}{onnx 加载失败 / \code{policy_session is None}}
+\code{policy/policy.onnx} 缺失或损坏；当前环境未安装 ONNX Runtime；用 \code{python -m pip show onnxruntime} 检查。
+\end{faq}
+\begin{faq}{yaml 报 KeyError \code{run}}
+\code{config/bumi_ac.yaml} 缺 \code{run:} 段或文件被改动。
+\end{faq}
+\begin{faq}{程序在跑、打印正常，但按手柄机器人无反应}
+两类断点：（1） DDS 没连上运控板（硬件状态回调没数据，回第 4 步查网络）；（2） 手柄没数据（\code{getremotedata()} 返回 None，回第 5 步 jstest 验证）。
+\end{faq}
+\begin{faq}{控制卡顿/机器人抖动}
+笔记本节能降频或后台负载高：插电源、性能模式、关闭占 CPU 的程序；500Hz 实时性优先。
+\end{faq}

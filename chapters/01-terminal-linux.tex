@@ -1,0 +1,87 @@
+\chapter{终端与 Linux 基础}
+\setchapterheader{第一章\quad 终端与 Linux 基础}
+\label{chap:terminal}
+\begin{intro}
+\begin{itemize}
+\item 分清操作系统、终端、Shell 和运行中的程序。
+\item 看懂目录、路径、命令参数、权限与环境变量。
+\item 了解常见报错应从哪个层面排查。
+\end{itemize}
+\end{intro}
+
+很多开发工具都通过终端使用。我们在终端里输入命令，就能安装软件、编译代码和运行程序。刚开始接触时，命令中的路径、参数和符号可能让人摸不着头脑。本章就从这些基本概念讲起，介绍部署 Bumi 时会用到的 Linux 操作。
+
+\section{终端与 Shell}
+Ubuntu 是本手册使用的 Linux 发行版。它提供操作系统内核、桌面、软件仓库和管理工具。终端是输入文字、显示输出的窗口；Shell 是解释命令的程序，本手册的命令采用 Ubuntu 上常见的 Bash 语法。
+
+例如输入 \code{python examples/py/test_policy.py}，Shell 先查找名为 \code{python} 的可执行程序，再把后面的脚本路径交给它。随后运行的是 Python 程序；终端继续显示这个程序的输出。
+
+\begin{concept}{选择正确的终端}
+本书的部署命令在 Ubuntu 笔记本的 Bash 终端中执行。Windows PowerShell、CMD、Python 交互窗口和 Bash 对命令的解释各有规则。看到 \code{>>>} 时，你通常进入了 Python 交互模式；应先输入 \code{exit()} 返回 Shell，再执行 \code{conda} 或 \code{sudo apt} 命令。
+\end{concept}
+
+这里的部署环境是 Ubuntu，后文的 Conda 也安装在 Ubuntu 中。我们会用到 Linux 版 SDK 和手柄设备节点 \code{/dev/input/js0}，因此请在 Ubuntu 终端中操作。
+
+\section{目录与路径}
+文件系统把文件组织在目录中。Linux 的路径分隔符是正斜线 \code{/}，并区分大小写。\code{policy.onnx} 和 \code{Policy.onnx} 是两个不同的名字。
+
+\begin{longtable}{@{}P{0.23\linewidth}P{0.66\linewidth}@{}}
+\toprule
+\textbf{写法} & \textbf{含义与本项目中的例子} \\
+\midrule
+\code{/home/alice/noetix_sdk_bumi} & 绝对路径，从文件系统根目录开始；用户名 alice 只是示例。\\
+\code{~/noetix_sdk_bumi} & Shell 将开头的波浪线展开为当前用户的家目录。\\
+\code{.} 与 \code{..} & 当前目录与上一级目录；\code{./build.sh} 表示运行当前目录的脚本。\\
+\code{config/dds.xml} & 相对路径，从进程的当前工作目录出发寻找文件。\\
+\code{/dev/input/js0} & 设备节点的绝对路径，由操作系统提供；它不在 SDK 目录内。\\
+\bottomrule
+\end{longtable}
+
+下面三个命令分别用于查看位置、列出文件和切换目录：
+\begin{command}
+pwd
+ls
+cd ~/noetix_sdk_bumi
+\end{command}
+\code{pwd} 显示当前目录；\code{ls} 列出目录内容；\code{cd} 改变当前 Shell 的目录。这里假设 SDK 保存在家目录下的 \code{noetix_sdk_bumi} 文件夹中。实际放在其他位置时，把路径换成相应目录即可。
+
+示例程序通过 \code{os.getcwd()} 获取工作目录，再从中查找配置、模型和 \code{build/}。因此运行程序时，我们先用 \code{cd} 进入 SDK 根目录，再执行脚本。这样程序就能按目录结构找到所需文件。
+
+\section{命令的基本结构}
+\begin{command}
+sudo apt install -y cmake g++
+\end{command}
+这里 \code{sudo} 请求以管理员身份执行后面的命令；\code{apt} 是 Ubuntu 的包管理工具；\code{install} 是子命令；\code{-y} 自动确认安装提示；\code{cmake} 和 \code{g++} 是要安装的软件包。
+
+\code{sudo apt update} 更新的是软件包索引，\code{sudo apt install} 才安装指定软件。输入 sudo 密码时，终端可能不显示字符或星号，这是正常行为。
+
+\begin{concept}{读懂命令中的几个符号}
+\begin{itemize}
+\item 空格分隔参数。路径中包含空格时应加引号，例如 \code{cd "My Project"}。
+\item Bash 代码块中，行末的反斜线表示续行；它后面应直接换行，不要再加空格。
+\item \texttt{\#} 开头的内容通常是注释。教程提示符中的 \code{$} 和 Python 提示符 \code{>>>} 不属于要复制的命令。
+\item \code{A && B} 表示 A 成功后才执行 B；\code{A | B} 把 A 的输出交给 B；\code{>} 将输出写入文件，并可能覆盖原内容。
+\end{itemize}
+\end{concept}
+
+\section{文件权限与环境变量}
+\code{ls -l build.sh} 显示文件权限。若自己获取的脚本没有执行位，可以在 SDK 根目录执行 \code{chmod u+x build.sh}，再用 \code{./build.sh} 运行。文件存在、具有执行权限和依赖齐全，是三个不同的条件。
+
+\code{PATH} 是 Shell 查找可执行程序的目录列表。\code{command -v python} 显示当前会找到哪个 Python；\code{export NAME=value} 为当前 Shell 及其之后启动的子进程设置环境变量。每个终端中的 Shell 分别保存这些设置。新开终端后，需要重新执行临时设置的命令。
+
+\begin{command}
+command -v python3
+echo "$PATH"
+ls -l /dev/input/js0
+\end{command}
+
+手柄节点可能在接收器插入后才出现。出现 \code{Permission denied} 时，需要检查用户和设备权限；出现 \code{No such file or directory} 时，应先检查路径与设备枚举。
+
+\begin{remark}{sudo 与 Python 环境}
+安装系统软件时，我们使用 \code{sudo apt}；在自己的 Conda 环境里安装 Python 包时，直接使用 \code{python -m pip}。sudo 可能改变程序查找路径，因此运行 SDK 时使用已激活环境中的 Python。手柄的访问权限在第 5 步配置。
+\end{remark}
+
+\section{进程与日志}
+程序运行时形成进程，日志是它在终端给出的反馈。\code{Ctrl+C} 通常请求前台程序中断；\code{Ctrl+Z} 是暂停进程。结束机器人控制程序时，先通过手柄停止控制，再用 \code{Ctrl+C} 退出。完整流程见第 9 步。
+
+排查一条报错时，先记录完整命令、\code{pwd}、解释器路径以及最早出现的具体错误，再判断是路径、权限、依赖还是设备问题。编译末尾的 \code{make: Error} 常常只是失败结果，需要向上找首次失败的原因。

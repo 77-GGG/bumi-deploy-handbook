@@ -1,0 +1,91 @@
+\chapter{网络与手柄的配置}
+\setchapterheader{第七章\quad 网络与手柄的配置}
+\begin{intro}
+\begin{itemize}
+\item 完成第 4、5 步：配置固定地址并检查手柄输入。
+\item 分别验证 DDS 所依赖的有线链路和本机 USB 输入链路。
+\end{itemize}
+\end{intro}
+网络和手柄是两条独立链路。网络负责机器人状态与控制指令，USB 接收器负责操作输入。任意一条没有数据，程序都有可能保持运行却不响应按键。
+
+\section{第 4 步：配置网线直连}
+\label{step:4}
+外挂笔记本使用原算力板的固定地址。先排除地址冲突，再检查到运控板的连通性；ping 成功仍需继续验证 DDS 是否收到硬件状态。
+
+
+\subsection*{操作步骤}
+\begin{enumerate}
+\item 网线一端插笔记本有线网口，另一端插 \textbf{Bumi 后背的网口}（即原算力板接口；运控板通过内部交换机走有线）。
+\item 给笔记本有线网卡配静态 IP（示例网卡名 \code{enp3s0}，用 \code{ip addr} 查实际名称）：
+
+\end{enumerate}
+\begin{command}
+sudo ip addr add 192.168.55.101/24 dev enp3s0
+sudo ip link set enp3s0 up
+\end{command}
+
+（永久生效可用 nmcli/netplan 配置，地址 192.168.55.101/24，不配网关。）
+\begin{enumerate}[resume]
+\item 机器人开机后（见第 6 步）测试连通：
+
+\end{enumerate}
+\begin{command}
+ping 192.168.55.102
+\end{command}
+
+\begin{expected}
+\begin{itemize}
+\item \code{ping 192.168.55.102} 有回复，丢包率低。
+\item \code{config/dds.xml} 无需修改：其 Peer 已指向 \code{192.168.55.102}。
+
+\end{itemize}
+\end{expected}
+\subsection*{常见问题}
+\begin{faq}{ping 不通}
+（1） 笔记本 IP 不是 192.168.55.101（运控板只认这个 IP）；（2） 网线没插到 Bumi 后背正确网口；（3） 机器人未开机/运控程序未启动完；（4） 笔记本其他网卡（WiFi）路由抢占了 192.168.55.0 网段，可临时关 WiFi 或加明细路由。
+\end{faq}
+\begin{faq}{IP 冲突提示}
+你的 Bumi 若自带算力板且在运行，它已占用 192.168.55.101。外挂方式下笔记本要"顶替"算力板：先让算力板下电/关闭，或直接改为在算力板上跑（\code{ssh noetix@192.168.55.101}，密码 bumi）。
+\end{faq}
+\begin{faq}{DHCP 自动获取了别的地址}
+Bumi 侧没有 DHCP 服务，必须手工配静态 IP。
+\end{faq}
+\begin{faq}{NetworkManager 反复改写 IP}
+用 nmcli 建一个 manual/静态连接配置，避免每次插拔变化。
+\end{faq}
+
+
+\section{第 5 步：验证手柄输入}
+\label{step:5}
+示例程序通过笔记本上的 \code{/dev/input/js0} 读取手柄。把 USB 接收器插到笔记本，再检查设备节点和输入数据。
+
+
+\subsection*{操作步骤}
+\begin{enumerate}
+\item 把\textbf{澳加狮手柄的 USB 接收器}插到笔记本 USB 口，打开手柄电源并配对。
+\item 验证设备节点与数据：
+
+\end{enumerate}
+\begin{command}
+ls -l /dev/input/js0
+sudo apt install -y joystick        # 提供 jstest 工具
+jstest /dev/input/js0               # 摇动摇杆/按键，观察数值变化
+\end{command}
+
+\begin{expected}
+\begin{itemize}
+\item \code{/dev/input/js0} 存在；jstest 中轴的原始整数读数随摇杆变化，按键位翻转；程序使用的归一化轴值与 jstest 的原始读数应区分。
+\item test\_policy.py 初始化即调用 \code{aoliondriver.init("/dev/input/js0", 115200)}，读取的正是这个节点。
+
+\end{itemize}
+\end{expected}
+\subsection*{常见问题}
+\begin{faq}{没有 \code{/dev/input/js0}}
+先把接收器插到笔记本并打开手柄完成配对。再用 \code{lsusb} 检查设备枚举，必要时更换 USB 口。
+\end{faq}
+\begin{faq}{普通 Python 进程打不开设备（权限）}
+确认设备权限后，按需执行 \code{sudo usermod -aG input $USER} 并重新登录，再激活 bumi\_deploy。重新登录后，使用该用户和已激活环境中的 Python 运行程序。
+\end{faq}
+\begin{faq}{jstest 有数据但程序里 \code{getremotedata()} 一直为 None}
+设备不是标准 joystick 协议或节点不是 js0（多手柄/模拟器会变成 js1），确认 \code{/dev/input/} 下唯一手柄节点；代码写死 \code{js0}，必要时改 \code{init()} 第一个参数。
+\end{faq}

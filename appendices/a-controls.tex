@@ -1,0 +1,26 @@
+\chapter{手柄按键与控制模式}
+\setchapterheader{附录 A\quad 手柄按键与控制模式}
+
+\begin{center}
+\begin{tikzpicture}[font=\small,>=Latex,
+ mode/.style={draw=blue!55!black,fill=blue!4,rounded corners=3pt,
+ text width=3.5cm,minimum height=1.05cm,align=center}]
+\node[mode] (default) {\texttt{DEFAULT}\\低阻尼};
+\node[mode,right=3.2cm of default] (lie) {\texttt{LIE}\\回到零位姿态};
+\node[mode,below=1.5cm of lie] (stand) {\texttt{STAND}\\站立准备};
+\node[mode,left=3.2cm of stand] (user) {\texttt{USERMODE}\\策略控制};
+\draw[->,thick] (default) -- node[above]{首次按“+”} (lie);
+\draw[->,thick] (lie) -- node[right]{LB + “−”} (stand);
+\draw[->,thick] (stand) -- node[above]{LB + X} (user);
+\draw[->,thick] (user.south) -- ++(0,-0.6) -| node[pos=0.25,below]{键 11：回站立} (stand.south);
+\draw[->,thick,dashed] (user) -- node[left,align=right]{摔倒保护} (default);
+\end{tikzpicture}
+\end{center}
+\begin{remark}{“+”切换的是 startcontrol 标志}
+正常接管后再按“+”，终端应打印 \code{stop control} 并进入 DEFAULT。
+摔倒保护将模式切回 DEFAULT，但不会清除 \code{startcontrol}，因此恢复时先按“+”停控，再按“+”重新接管。
+\end{remark}
+\begin{description}
+\item[摇杆] \code{axes[1]} 控制前进和后退；\code{axes[0]} 控制转向。名义前后向指令范围约为 $[-0.5,0.5]$ m/s。正向 $0\leq v_x<0.3$ 时置零，负向没有同样的死区；转向指令绝对值不超过 $1.0$，死区为 $0.3$。
+\item[日志] \code{TO USERWALK MODE} 表示进入策略模式；\code{WALK2STAND} 表示退出策略；\code{Fall Protection Triggered (UserMode)!} 表示触发摔倒保护。
+\end{description}

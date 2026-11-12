@@ -1,0 +1,82 @@
+\chapter{手柄操作与程序退出}
+\setchapterheader{第九章\quad 手柄操作与程序退出}
+\begin{intro}
+\begin{itemize}
+\item 完成第 8、9 步：逐级切换模式、使用摇杆并停止控制。
+\item 识别模式日志、摔倒保护和退出时的控制状态。
+\end{itemize}
+\end{intro}
+按键改变的是程序状态，而每种状态采用不同的控制方法。先分清阻尼、零位插值、站立准备和策略控制，再操作按键；每次切换后都等待机器人和终端日志给出反馈。
+
+\section{第 8 步：手柄操作与模式切换}
+\label{step:8}
+下面的顺序对应推荐操作路径。LB+− 当前分支未完整实现按键锁存，点按后松开第二个键，再等待站立插值完成，避免长按反复重置过程。
+
+
+手柄按键与 button 索引对照（手册）：RB=1，\textbf{LB=2}，\textbf{X=5}，Y=6，B=7，A=8，\textbf{"+"=9}，\textbf{"−"=10}，无标名键=11，左摇杆按下=12。
+
+程序内模式：\code{DEFAULT}（阻尼）$\rightarrow$ \code{LIE}（趴卧回零）$\rightarrow$ \code{STAND}（站立准备）$\rightarrow$ \code{USERMODE}（策略行走），逐级切换：
+
+\begin{enumerate}[label=\arabic*.]
+\item \textbf{按 \textbf{"+"} 一次}。开始控制：从当前姿态缓慢插值到趴卧零位。\par
+\textbf{观察反馈：}终端打印 \code{start control}，机器人关节缓慢回零趴下
+\item \textbf{\textbf{LB + "−"} 同时按}。趴卧 $\rightarrow$ 站立准备模式（四肢微曲站立，约 2 秒插值）。\par
+\textbf{观察反馈：}终端打印 \code{STAND2LIE}（示例代码打印文案有误，实际是\textbf{进入 STAND 站立}），机器人自起立站稳
+\item \textbf{\textbf{LB + X} 同时按}。站立 $\rightarrow$ \textbf{策略控制行走模式}（ONNX 策略接管 21 关节）。\par
+\textbf{观察反馈：}终端打印 \code{TO USERWALK MODE}，随后打印一屏观测数值（71$\times$5 个数）；机器人姿态由策略维持
+\item \textbf{摇杆}。控制运动：\textbf{axes[1]（左摇杆前后）= 前进/后退，axes[0] = 左右转向}。\par
+\textbf{观察反馈：}前进最大约 0.5 m/s（scalex=0.5），仅当前进指令满足 0$\leq$cmd\_x<0.3 时置零，对应正向推程约小于 60\%；负向指令没有这一死区；转向 yaw 的绝对值$\leq$1.0、死区 0.3
+\item \textbf{\textbf{无标名键(11)}}。行走 $\rightarrow$ 回站立。\par
+\textbf{观察反馈：}终端打印 \code{WALK2STAND}，策略退出、保持站立
+\item \textbf{再按 \textbf{"+"}}。停止控制，回到阻尼模式。\par
+\textbf{观察反馈：}终端打印 \code{stop control}，全身关节失力进入阻尼。示例代码设置 kp=0、kd=0.1、tau=0，不主动驱动关节回零
+\end{enumerate}
+\begin{remark}{站立模式的日志}
+示例程序进入 \code{STAND} 时打印 \code{STAND2LIE}。这里的打印名称与状态转换方向相反，实际动作是进入站立准备模式。
+\end{remark}
+
+\subsection*{常见问题}
+\begin{faq}{按 "+" 无反应}
+手柄数据没到程序（jstest 验证、检查接收器）；或程序还没收到硬件状态（DDS 未连通，回第 4/7 步）。
+\end{faq}
+\begin{faq}{组合键（LB+−、LB+X）不生效}
+先按住 LB，再点按第二个键后松开；等待动作完成后再切换。代码检查 \code{button[2]==1} 与另一键同时成立；当前 LB+− 分支未置位 \code{keyflag[10]}，长按可能反复重置站立插值。
+\end{faq}
+\begin{faq}{站立过程晃动/失败}
+地面不平/打滑、吊架吊带别太松；确保站立插值过程没有外物阻挡。
+\end{faq}
+\begin{faq}{终端突然打印 \code{Fall Protection Triggered (UserMode)!} 并全身变软}
+策略摔倒保护：机器人倾角超限（projectedGravity 判定），自动回 DEFAULT 阻尼。恢复流程：扶正机器人 $\rightarrow$ 按 "+"（打印 \code{stop control}）$\rightarrow$ 再按 "+"（\code{start control}）$\rightarrow$ LB+"−" 站立 $\rightarrow$ LB+X 重新进策略。
+\end{faq}
+\begin{faq}{行走中猛冲/失控}
+立刻按无标名键(11)回站立或按 "+" 进阻尼；首次测试务必用吊架并小幅推杆。
+\end{faq}
+\begin{faq}{把机器人拎起来后关节仍持续输出}
+手册禁止：行走步态下勿将机器人拎起双脚悬空（电机异常受力损坏风险）；先按键停止再搬运。
+\end{faq}
+
+
+\section{第 9 步：停止程序与关机}
+\label{step:9}
+退出顺序从机器人控制状态开始：先确认支撑和停控，再结束进程。需要使用 APP 收纳时，应先退出 SDK 程序，再切换到 APP，保持单一控制源。
+
+
+\subsection*{操作步骤}
+\begin{enumerate}
+\item 先按 \textbf{"+"} 让机器人 \code{stop control}（进阻尼、关节失力），\textbf{再} \code{Ctrl+C} 退出程序（避免在策略输出中直接断开）。
+\item 关机（手册）：APP 执行一键收纳 $\rightarrow$ 扶稳机器人坐于地面 $\rightarrow$ 长按电池开关直至完全关机 $\rightarrow$ 按卡扣取出电池充电。
+
+\end{enumerate}
+\begin{expected}
+\begin{itemize}
+\item 终端进程退出；直接使用 Ctrl+C 时可能显示 KeyboardInterrupt。应先确认 stop control 与机器人支撑状态，再退出和搬运。
+
+\end{itemize}
+\end{expected}
+\subsection*{常见问题}
+\begin{faq}{直接 Ctrl+C 后机器人保持最后一个力矩指令短暂僵硬}
+先保持机器人得到支撑，按“+”并确认终端打印 \code{stop control}，再按 \code{Ctrl+C} 退出程序。
+\end{faq}
+\begin{faq}{一键收纳失败}
+周围 3m$\times$3m 有杂物、地面打滑；先清理再重试（手册禁止杂物环境使用收纳/起身）。
+\end{faq}

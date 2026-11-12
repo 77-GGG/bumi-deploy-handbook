@@ -1,0 +1,21 @@
+\chapter{常见故障速查}
+\setchapterheader{附录 C\quad 常见故障速查}
+
+\begin{longtable}{@{}P{0.20\linewidth}P{0.43\linewidth}P{0.26\linewidth}@{}}
+\toprule
+\textbf{现象} & \textbf{首查} & \textbf{次查} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{现象} & \textbf{首查} & \textbf{次查} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+编译失败 & cmake/gcc 版本、onnxruntime 包 & \code{./build.sh clean} 后重编 \\
+import 失败 & 是否在 SDK 根目录、build/*.so 是否存在 & 第 3 步 \\
+程序正常但机器人无反应 & \code{ping 192.168.55.102}、笔记本 IP 是否 192.168.55.101 & jstest 手柄、DDS 配置 \\
+libssl.so.1.1 报错 & 装手册提供的 x86\_64 deb & 第 3 步 FAQ \\
+机器人软掉/Fall Protection & 扶正后按恢复流程 & 第 8 步 FAQ \\
+运动卡顿 & 电源模式/后台负载/网卡丢包（\code{ping -f} 简单压测） & 换更短网线、固定网卡 \\
+\end{longtable}

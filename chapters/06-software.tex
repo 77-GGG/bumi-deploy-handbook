@@ -1,0 +1,152 @@
+\chapter{软件环境的配置}
+\setchapterheader{第六章\quad 软件环境的配置}
+\begin{intro}
+\begin{itemize}
+\item 完成第 1 至第 3 步：安装系统与依赖、获取 SDK、编译 Python 绑定。
+\item 区分 Python 推理包、C++ 开发包与 SDK 自带库。
+\end{itemize}
+\end{intro}
+这一章完成软件环境的准备。我们先安装工具链和 Python 依赖，再编译 SDK 的 Python 扩展。最后分别导入 ONNX Runtime 和 \code{lowcontrol_py}，检查推理模块和机器人接口。
+
+\section{第 1 步：安装系统与编译环境}
+\label{step:1}
+首先安装 Ubuntu 22.04 x86\_64 和编译工具链，让系统与 SDK 中提供的库保持一致。
+
+
+\subsection*{操作步骤}
+\begin{enumerate}
+\item 笔记本安装 Ubuntu 22.04 LTS（x86\_64），接通电源、关闭休眠。
+\item 安装编译依赖：
+
+\end{enumerate}
+\begin{command}
+sudo apt update
+sudo apt install -y cmake g++ build-essential libyaml-cpp-dev libeigen3-dev \
+    libboost-all-dev libfmt-dev python3-dev python3-pip git curl
+\end{command}
+
+\begin{enumerate}[resume]
+\item 若 \code{cmake --version} 低于 3.16（22.04 默认 3.22 一般够用），按手册装 cmake 3.26.3：解压后 \code{sudo mv cmake-3.26.3-Linux-x86_64 /opt/}，再 \code{sudo ln -s /opt/cmake-3.26.3-Linux-x86_64/bin/* /usr/bin/}。
+
+\end{enumerate}
+\begin{expected}
+\begin{itemize}
+\item \code{cmake --version} $\geq$ 3.16；\code{g++ --version} $\approx$ 11.4；Ubuntu 的系统 \code{python3 --version} 为 3.10.x；项目使用的解释器在第 2 步单独确认。
+\item 编译 SDK 不需要 ROS 环境。
+
+\end{itemize}
+\end{expected}
+\subsection*{常见问题}
+\begin{faq}{apt 安装包 404 / 锁定}
+先 \code{sudo apt update}；有进程占用时等几秒重试。
+\end{faq}
+\begin{faq}{cmake 版本过低，编译报 \code{CMake 3.16 required}}
+按上面方法手动安装 cmake 3.26.3。
+\end{faq}
+\begin{faq}{只有 Windows 系统}
+为笔记本安装 Ubuntu 双系统，在 Ubuntu 中使用 SDK。项目提供的 x86\_64 库和手柄节点 \code{/dev/input/js0} 都对应 Linux 环境。
+\end{faq}
+
+
+\section{第 2 步：获取 SDK 与 Python 依赖}
+\label{step:2}
+SDK 的目录结构本身也是运行条件。例程从当前工作目录定位 build、config 与 policy，复制文件时要保留整套目录。
+
+
+\subsection*{操作步骤}
+\begin{enumerate}
+\item 在笔记本上获取 SDK（二选一）：
+
+\end{enumerate}
+\begin{command}
+git clone https://github.com/Noetix-Robotics/noetix_sdk_bumi.git
+# 或把本目录（含 build.sh、config、dds、examples、lib、policy、pybind）整体拷到笔记本，如 ~/noetix_sdk_bumi
+\end{command}
+
+\begin{enumerate}[resume]
+\item 按第\,\ref{chap:conda}\,章安装 Miniconda；若尚无 bumi\_deploy 环境，先创建，再激活并安装 Python 依赖：
+
+\end{enumerate}
+\begin{command}
+# 仅在 bumi_deploy 环境尚不存在时执行 create
+conda create -n bumi_deploy python=3.10 pip
+conda activate bumi_deploy
+python -m pip install onnxruntime numpy pyyaml pybind11
+python -c "import sys; print(sys.executable)"
+\end{command}
+
+\begin{enumerate}[resume]
+\item 确认关键文件存在：\code{policy/policy.onnx}、\code{config/bumi_ac.yaml}（须含 \code{run:} 段）、\code{config/dds.xml}。
+
+\end{enumerate}
+\begin{expected}
+\begin{itemize}
+\item \code{python -c "import onnxruntime, numpy, yaml; print('ok')"} 输出 \code{ok}。
+\item SDK 目录结构完整（build.sh / config / dds / examples / lib / policy / pybind）。
+
+\end{itemize}
+\end{expected}
+\subsection*{常见问题}
+\begin{faq}{pip 安装时出现权限或 externally-managed 报错}
+激活 \code{bumi_deploy}，再用 \code{python -m pip --version} 检查 pip 路径，然后重新安装。环境配置见第\,\ref{chap:conda}\,章。使用 venv 时，激活对应的 venv 即可。
+\end{faq}
+\begin{faq}{换用自己的策略模型时缺 \code{policy/policy.onnx}}
+test\_policy.py 固定加载 \code{<cwd>/policy/policy.onnx}，文件名/路径不能变；模型需内嵌 \code{joint_names / joint_stiffness / joint_damping / default_joint_pos / action_scale} 元数据，且与 \code{bumi_ac.yaml} 的 \code{run:} 段尺寸参数一致（actions\_size=21、observations\_size=71、stack\_size=5）。
+\end{faq}
+\begin{faq}{显卡（GPU）用不上？}
+正常现象：本例程 onnxruntime 显式使用 \code{CPUExecutionProvider}，模型很小 CPU 足够。想用 GPU 装的是 \code{onnxruntime-gpu}，并把 \code{load_model()} 中 providers 改为 \code{["CUDAExecutionProvider","CPUExecutionProvider"]}；注意 GPU 首帧初始化/调度抖动可能影响 500Hz 实时性，实机前先用吊架验证。
+\end{faq}
+
+
+\section{第 3 步：编译 SDK 与 Python 绑定}
+\label{step:3}
+这一步把 C++ 接口编译成 Python 扩展。除了前面安装的 Python 包，CMake 还需要 ONNX Runtime 的 C++ 开发配置。
+
+
+\subsection*{操作步骤}
+\begin{enumerate}
+\item 激活与运行相同的 Conda 环境，进入 SDK 根目录。若曾用其他 Python 构建，先按第\,\ref{sec:conda-build}\,节备份旧 build 目录。
+\item 明确指定当前 Python 和 pybind11 的 CMake 路径，再进行配置与构建：
+\end{enumerate}
+\begin{command}
+conda activate bumi_deploy
+cd ~/noetix_sdk_bumi
+cmake -S . -B build \
+  -DPYBIND11_FINDPYTHON=ON \
+  "-DPython_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" \
+  "-Dpybind11_DIR=$(python -m pybind11 --cmakedir)"
+cmake --build build --parallel 8
+\end{command}
+\begin{remark}{与原 build.sh 的关系}
+原脚本在 build 目录运行 CMake 与 make。这里手动展开构建，并增加解释器选择参数，保持产物仍位于 build；无需修改 SDK 源码。后续若继续使用脚本，也要先激活同一环境并核对缓存。
+\end{remark}
+\begin{enumerate}[resume]
+\item 如果配置阶段报告缺少 ONNX Runtime，先准备 SDK 所要求的 C++ 开发包，并确认其中存在 CMake 可发现的 \code{onnxruntimeConfig.cmake} 或 \code{onnxruntime-config.cmake}。CMake 通过配置文件定位头文件、库和相应构建设置。
+\item 找到上述文件后，把它\textbf{所在的目录}作为 \code{-Donnxruntime_DIR=...} 参数追加到同一次 CMake 配置命令；或按开发包文档设置 \code{CMAKE_PREFIX_PATH}。保留上面的 Python 与 pybind11 参数。若发行包中缺少此配置，按 SDK 开发环境要求补齐相应开发安装。
+\end{enumerate}
+ONNX Runtime 下载文件选择 Linux x86\_64，安装路径按实际目录填写。
+
+\begin{expected}
+\begin{itemize}
+\item 编译无报错；\code{build/} 目录生成 \code{lowcontrol_py*.so}（还有 \code{highcontrol_py*.so}、\code{mediacontrol_py*.so}）。
+\item \code{build/} 目录生成 \code{example_low}、\code{example_high}、\code{example_policy}、\code{example_media} 可执行文件。
+\item 从 SDK 根目录用当前 \code{python} 验证导入，解释器来自 bumi\_deploy 环境，扩展来自 SDK 的 build 目录：
+
+\end{itemize}
+\end{expected}
+\begin{command}
+python -c "import sys; sys.path.insert(0, './build'); import lowcontrol_py; print(sys.executable); print(lowcontrol_py.__file__)"
+\end{command}
+\subsection*{常见问题}
+\begin{faq}{运行时报 \code{error while loading shared libraries: libssl.so.1.1}}
+Ubuntu 22.04 缺少 libssl1.1 时，从手册下载对应架构 deb 并安装（x86\_64）：\code{sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb}。
+\end{faq}
+\begin{faq}{\code{find_package(onnxruntime REQUIRED)} 失败}
+检查开发包是否实际提供 CMake 包配置文件，再按本步骤设置 \code{onnxruntime_DIR} 或开发安装前缀。配置文件所在目录要与 CMake 参数对应。
+\end{faq}
+\begin{faq}{链接/编译报与 gcc 相关错误}
+手册要求 gcc 11.4（22.04 默认即 11.4），勿混用其他版本工具链。
+\end{faq}
+\begin{faq}{找不到 \code{libnoetix_sdk.a} / DDS 库}
+仓库不完整：\code{lib/x86_64/} 与 \code{dds/x86_64/} 必须存在；架构要匹配（笔记本用 x86\_64，不要用 aarch64 的 docker 镜像 noetix\_dds——该镜像仅限 arm64）。
+\end{faq}

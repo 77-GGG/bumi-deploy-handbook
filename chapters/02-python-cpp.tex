@@ -1,0 +1,73 @@
+\chapter{Python 与 C++ 开发环境}
+\setchapterheader{第二章\quad Python 与 C++ 开发环境}
+\label{chap:python-build}
+\begin{intro}
+\begin{itemize}
+\item 理解解释器、模块、包和原生扩展之间的关系。
+\item 用实际路径定位“已经安装，却仍然无法导入”的原因。
+\item 看懂 CMake、编译器、头文件、静态库和共享库的分工。
+\end{itemize}
+\end{intro}
+
+打开 SDK 目录，你会看到 Python 脚本、C++ 源码、库文件和模型。为什么一个项目里会放这么多种文件？因为它们各有分工：Python 负责组织控制流程，C++ SDK 提供机器人接口，模型文件保存策略。本章介绍这些部分怎样配合工作。
+
+\section{Python 解释器与模块}
+\code{python} 是解释器程序，\code{test_policy.py} 是交给它执行的脚本。脚本中的 \code{import numpy} 表示导入模块。一个可安装的软件包可能提供一个或多个模块，安装名与导入名也可能不同，例如安装 \code{pyyaml}，代码里写的是 \code{import yaml}。
+
+本例程需要 \code{numpy} 做数组运算、\code{yaml} 读取配置、\code{onnxruntime} 执行模型推理；还需要通过 \code{lowcontrol_py} 调用 SDK。其中 \code{lowcontrol_py} 由 SDK 的 C++ 代码编译生成，编译方法见第 3 步。
+
+\begin{command}
+python -c "import sys; print(sys.executable); print(sys.version)"
+python -m pip --version
+python -m pip show numpy
+\end{command}
+第一行确认解释器；第二行确认该解释器使用的 pip；第三行查看包的安装位置。\code{python -m pip} 的含义是“由这个 Python 执行 pip 模块”，这样安装和运行更容易保持一致。命令用法见\href{https://pip.pypa.io/en/stable/user_guide/}{pip 官方用户指南}。
+
+\begin{concept}{Python 会到哪些地方寻找模块}
+Python 按导入搜索路径寻找模块，\code{sys.path} 可以显示这些路径。示例程序主动加入 SDK 根目录下的 \code{build/}，让 \code{import lowcontrol_py} 能找到编译产物。导入失败时，就从解释器路径、模块所在位置和 \code{sys.path} 这三处检查。
+\end{concept}
+
+\section{Python 的基本用法}
+如果只需要部署，暂时不必通读 Python 语法。先看懂变量、列表、下标和函数调用：
+\begin{command}
+python -c "axes = [0.2, 0.7]; print(axes[0], axes[1])"
+python -c "print(3 + 3 + 2 + 21 + 21 + 21); print(71 * 5)"
+\end{command}
+列表下标从零开始，因此 \code{axes[1]} 是第二个数。第一行输出两个摇杆示例值；第二行说明程序中观测的维度：3 个运动指令、3 个角速度、2 个姿态角，以及各 21 个关节位置、关节速度和上一帧动作，共 71 个数。堆叠 5 帧后是 355 个输入数。
+
+\code{if} 根据条件决定执行分支；\code{while True} 表示持续循环；函数把一组操作组织起来。例如 \code{process()} 处理当前状态与按键，\code{load_model()} 读取模型。阅读例程时可以先顺着 \code{main()} 找调用关系，再进入各函数。
+
+\section{Python 与 C++ 的连接}
+本项目使用 pybind11 把 C++ 接口包装成 Python 扩展。过程可以按以下顺序理解：
+\begin{center}
+\begin{tikzpicture}[font=\small,>=Latex,
+ block/.style={draw=blue!55!black,fill=blue!4,rounded corners,
+ text width=2.9cm,minimum height=1.1cm,align=center}]
+\node[block] (source) {C++ 源码与头文件\\\texttt{pybind/}、\texttt{include/}};
+\node[block,right=1.4cm of source] (build) {编译与链接\\编译器、SDK 与 DDS 库};
+\node[block,right=1.4cm of build] (module) {Python 扩展\\\texttt{lowcontrol\_py}\\\texttt{*.so}};
+\draw[->,thick] (source) -- (build);
+\draw[->,thick] (build) -- (module);
+\end{tikzpicture}
+\end{center}
+
+头文件 \code{.h}、\code{.hpp} 声明接口；静态库 \code{.a} 在链接时参与构建；共享库 \code{.so} 可以在程序加载或运行时被需要。\code{lowcontrol_py*.so} 本身也是共享对象，同时具有 Python 扩展入口。
+
+\begin{remark}{扩展模块与 Python 版本}
+扩展模块的文件名通常包含 Python 版本和平台信息。例如 \code{cpython-310} 表示它面向 CPython 3.10。我们在 \code{bumi_deploy} 中编译并运行扩展，统一使用 Python 3.10 和 x86\_64 库。更换解释器版本时，重新配置 CMake 并编译即可。
+\end{remark}
+
+\section{CMake 与工程构建}
+CMake 读取 \code{CMakeLists.txt}，查找依赖、选择工具并生成构建规则；G++ 编译 C++；构建工具执行规则并链接产物。\code{build.sh} 把这些命令写成脚本，便于一次完成配置和编译。编译器和开发库由后文的安装步骤准备。
+
+\begin{command}
+cmake -S . -B build
+cmake --build build --parallel 8
+\end{command}
+这两行是构建语法示例：\code{-S .} 指源目录，\code{-B build} 指构建目录。\code{--parallel 8} 表示最多使用 8 个并行构建任务。实际部署还需要第 3 步给出的 Python 与依赖参数。参见\href{https://cmake.org/cmake/help/v3.22/manual/cmake.1.html}{CMake 3.22 命令手册}。
+
+\code{build/CMakeCache.txt} 保存配置结果，包括已经找到的依赖路径。换了 Python 或环境之后，旧缓存可能仍然指向先前的位置；这时需要重新配置，必要时备份并重建构建目录。
+
+\begin{concept}{ONNX Runtime 有两个使用入口}
+Python 程序通过 pip 安装的 \code{onnxruntime} 执行推理；C++ 工程通过 \code{find_package(onnxruntime REQUIRED)} 查找开发库。两种用法分别对应 Python 包和 C++ 开发配置，我们会在第 2、3 步中分别准备。
+\end{concept}

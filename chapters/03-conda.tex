@@ -1,0 +1,182 @@
+\chapter{Conda 与虚拟环境}
+\setchapterheader{第三章\quad Conda 与虚拟环境}
+\label{chap:conda}
+\begin{intro}
+\begin{itemize}
+\item 理解虚拟环境的用途，以及 Conda、Miniconda、pip 与 venv 的区别。
+\item 创建并检查 \code{bumi_deploy} 环境，安装本项目的 Python 依赖。
+\item 让 SDK 的编译与运行使用同一个解释器，并保存环境记录。
+\end{itemize}
+\end{intro}
+
+不同项目经常需要不同的 Python 和第三方库版本。比如 Bumi 使用 Python 3.10，另一个项目使用 Python 3.12；如果把依赖都装在一起，更新一个项目时就可能影响另一个。为了解决这个问题，我们为每个项目创建单独的虚拟环境。
+
+\section{什么是虚拟环境}
+Conda 环境通常是磁盘上的一个目录，里面包含解释器、库和可执行程序。激活环境后，当前 Shell 调整程序查找路径及相关变量，之后输入 \code{python} 时就能优先使用该环境的解释器。参见\href{https://docs.conda.io/projects/conda/en/stable/user-guide/concepts/environments.html}{Conda 环境概念}与\href{https://docs.conda.io/projects/conda/en/stable/dev-guide/deep-dives/activation.html}{激活机制说明}。
+
+\begin{longtable}{@{}P{0.22\linewidth}P{0.67\linewidth}@{}}
+\toprule
+\textbf{名称} & \textbf{作用} \\
+\midrule
+Conda & 包管理与环境管理工具，可管理 Python 和多种原生依赖。\\
+Miniconda & 包含 Conda、基础 Python 等组件的较小安装发行包，按需安装项目依赖。\\
+Anaconda Distribution & 提供更多预装数据科学软件的发行包；运行本例程不要求安装完整套件。\\
+pip & Python 包安装工具。本书通过 \code{python -m pip} 指向选定解释器。\\
+venv & Python 自带的环境工具，基于已有解释器创建隔离的 Python 包目录。\\
+\bottomrule
+\end{longtable}
+
+\begin{remark}{环境与工作目录}
+使用项目时，我们做两个操作：通过 \code{conda activate bumi_deploy} 选择 Python 环境，通过 \code{cd ~/noetix_sdk_bumi} 进入项目目录。环境负责解释器和软件包，目录决定程序从哪里寻找文件。网卡和手柄则由 Ubuntu 管理，后文会分别配置。
+\end{remark}
+
+\section{安装 Miniconda}
+本手册选择 Miniconda 作为 Conda 的安装入口。若 Ubuntu 中已经有可用 Conda，先运行 \code{conda --version}，无需再装一套。下面面向 x86\_64 Ubuntu；安装器里的基础 Python 版本不必等于之后项目环境中的 Python 版本。
+
+先下载并检查安装器：
+\begin{command}
+cd ~
+curl -fLO https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+sha256sum Miniconda3-latest-Linux-x86_64.sh
+\end{command}
+将校验结果与\href{https://repo.anaconda.com/miniconda/}{官方安装器目录}中对应文件的 SHA-256 比较，再执行：
+\begin{command}
+bash Miniconda3-latest-Linux-x86_64.sh
+\end{command}
+按提示阅读条款，使用自己的用户目录作为安装位置，例如 \code{~/miniconda3}。安装在自己的用户目录中，后续就可以用当前用户管理环境和依赖。流程见\href{https://www.anaconda.com/docs/getting-started/miniconda/install/linux-install}{Miniconda 官方 Linux 安装说明}。
+
+安装结束后关闭并重新打开终端。若 Shell 尚未初始化，在采用上述安装位置时执行：
+\begin{command}
+~/miniconda3/bin/conda init bash
+\end{command}
+再重新打开终端，并检查：
+\begin{command}
+conda --version
+conda info --envs
+\end{command}
+\code{conda init bash} 配置的是 Bash 启动时加载 Conda 的方式；不是创建环境。初始化通常只需执行一次；以后每次打开终端，使用 \code{conda activate bumi_deploy} 进入项目环境。
+
+\section{创建与激活环境}
+本项目使用 Python 3.10。编译与部署统一使用环境名 \code{bumi_deploy}。创建命令只在环境尚不存在时执行一次：
+\begin{command}
+conda create -n bumi_deploy python=3.10 pip
+conda activate bumi_deploy
+python --version
+python -c "import sys; print(sys.executable)"
+python -m pip --version
+conda info --envs
+\end{command}
+\code{-n bumi_deploy} 指定名字，\code{python=3.10} 指定 Python 次版本，\code{pip} 请求一并安装 pip。Conda 在显示安装计划后等待确认；已有同名环境时，应先检查其内容。命令参数见\href{https://docs.conda.io/projects/conda/en/stable/commands/create.html}{conda create 官方说明}。
+
+\begin{expected}
+Python 版本为 3.10.x；解释器路径位于 \code{bumi_deploy} 环境目录中；pip 位置也在该环境内。\code{conda info --envs} 中当前环境通常以星号标记。激活后，提示符通常显示 \code{(bumi_deploy)}。
+\end{expected}
+
+\code{base} 是 Conda 安装自带的基础环境。本项目使用专门的 \code{bumi_deploy} 环境，便于单独记录依赖。\code{conda deactivate} 退出当前激活层；退出后，环境仍保存在磁盘上，下次可以继续激活。
+
+\section{安装 Python 包}
+本手册的主路线是先用 Conda 创建 Python 与 pip，再用当前环境的 pip 安装下面这组 Python 依赖：
+\begin{command}
+conda activate bumi_deploy
+python -m pip install numpy pyyaml onnxruntime pybind11
+python -c "import numpy, yaml, onnxruntime, pybind11; print('python deps ok')"
+python -m pip check
+\end{command}
+导入命令输出 \code{python deps ok}，说明这几个包已安装到当前 Python 中；\code{pip check} 用于检查包之间的依赖关系。示例程序使用 \code{CPUExecutionProvider} 在 CPU 上推理，安装普通版 ONNX Runtime 即可。
+
+\begin{remark}{Conda 与 pip 的配合}
+我们先用 Conda 安装 Python 和 pip，再用 \code{python -m pip} 安装项目依赖。这样 pip 会把包装到当前环境中。需要大幅调整依赖时，可以根据环境记录重新创建一个环境。参见\href{https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html#using-pip-in-an-environment}{Conda 关于 pip 混用的说明}。
+\end{remark}
+
+接下来还要准备系统和 C++ 依赖：第 1 步通过 APT 安装工具链，第 3 步配置 SDK、DDS 和 ONNX Runtime 开发库。环境、工具链和开发库齐全后，就可以编译 Python 扩展了。
+
+\section{在虚拟环境中编译 SDK}
+\label{sec:conda-build}
+SDK 的 Python 扩展要与运行时的解释器对应。因此，我们先激活 \code{bumi_deploy}，再把这个环境中的 Python 和 pybind11 路径交给 CMake。之后运行程序时，继续使用同一个环境。
+
+完成 SDK 下载和 C++ 依赖安装后，在项目根目录执行下面的命令。第 3 步还会介绍依赖的具体配置方法。
+\begin{command}
+conda activate bumi_deploy
+cd ~/noetix_sdk_bumi
+cmake -S . -B build \
+  -DPYBIND11_FINDPYTHON=ON \
+  "-DPython_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" \
+  "-Dpybind11_DIR=$(python -m pybind11 --cmakedir)"
+cmake --build build --parallel 8
+\end{command}
+
+\begin{itemize}
+\item \code{PYBIND11_FINDPYTHON=ON} 选择 pybind11 的 FindPython 支持模式。
+\item \code{Python_EXECUTABLE} 指向激活环境实际使用的解释器；它的大小写不能随意改写。
+\item \code{pybind11_DIR} 指向该环境中 pybind11 提供的 CMake 配置目录。
+\item Bash 的 \code{$(...)} 先执行括号中的命令，再把输出作为参数的一部分。这里的引号保留路径中的空格。
+\end{itemize}
+关于这些参数的进一步说明，可以参考\href{https://pybind11.readthedocs.io/en/stable/compiling.html#findpython-mode}{pybind11 FindPython 文档}和\href{https://cmake.org/cmake/help/v3.22/module/FindPython.html}{CMake FindPython 文档}。
+
+\begin{remark}{已有 build 目录时，先核对旧缓存}
+若 \code{build/} 曾由另一个环境配置，先停止使用相关程序，并在 SDK 根目录将它备份为一个尚未存在的目录，例如 \code{mv build build-before-conda}，再重新配置。新的产物仍放在 \code{build/}，以匹配例程固定加入的导入路径。构建目录统一命名为 \code{build/}。
+\end{remark}
+
+配置阶段若报缺 ONNX Runtime，先按第 3 步处理开发包。配置成功后，再构建并从 SDK 根目录验证：
+\begin{command}
+python -c "import sys; sys.path.insert(0, './build'); import lowcontrol_py; print(sys.executable); print(lowcontrol_py.__file__)"
+\end{command}
+验证通过后，每次运行仍需完成两件事：激活 \code{bumi_deploy}，进入 SDK 根目录。也可用 \mbox{\code{conda run}} 配合 \code{-n bumi_deploy} 明确指定环境；运行前仍需进入 SDK 根目录。
+
+\section{环境的导出与复现}
+环境配置好以后，我们通常希望把它保存下来，方便换电脑、与同伴协作或以后重新安装。这时就需要一份环境清单，记录 Python 和各个包的版本。
+
+先看一个简单例子。把下面的内容保存为 \code{environment.yml}：
+\begin{command}
+name: bumi_deploy
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - numpy
+      - pyyaml
+      - onnxruntime
+      - pybind11
+\end{command}
+在另一个环境尚不存在的目标机器上，可以用 \code{conda env create -f environment.yml} 创建。这份清单指定 Python 3.10，其余包由安装时解析版本。要保存当前环境的具体版本，可以使用下面的导出命令。
+
+工作环境验证通过后，保存实际记录：
+\begin{command}
+conda env export --no-builds > environment-tested.yml
+python -m pip freeze > requirements-tested.txt
+conda list > conda-packages-tested.txt
+\end{command}
+分享 YAML 前检查并移除可能出现的本机 \code{prefix:} 路径。\code{requirements-tested.txt} 记录 Python 包的版本。与环境清单一起保存的，还应有 Ubuntu 版本、CPU 架构、SDK 版本、编译参数和模型版本，便于在另一台机器上复现。
+
+\code{--from-history} 用于导出手动指定的 Conda 依赖。这里同时使用了 pip，因此我们保存完整环境清单，并额外用 \code{pip freeze} 记录 Python 包。迁移到相同系统和架构后，再编译 SDK 扩展。有关选项见\href{https://docs.conda.io/projects/conda/en/stable/commands/env/export.html}{Conda 环境导出说明}；它与新版本提供的 \code{conda export} 命令可以按版本选用。
+
+\section{常见问题}
+\begin{faq}{conda: command not found，或者提示先运行 conda init}
+先检查 Miniconda 是否安装在当前 Ubuntu 用户下。若位于 \code{~/miniconda3}，用其绝对路径执行 \code{conda init bash} 后重开终端。这里检查的是 Ubuntu 中的安装位置。
+\end{faq}
+\begin{faq}{显示 (bumi\_deploy)，却仍然找不到刚安装的包}
+比较 \code{python -c "import sys; print(sys.executable)"} 与 \code{python -m pip --version}。还要检查是否用了 \code{/usr/bin/python3}、sudo、另一个终端或编辑器的其他解释器。把运行命令和编辑器都切换到 \code{bumi_deploy} 中的解释器即可。
+\end{faq}
+\begin{faq}{能导入 numpy，仍不能导入 lowcontrol\_py}
+先确认在 SDK 根目录，且 \code{build/} 内确有对应扩展；再核对构建使用的 Python。\code{ModuleNotFoundError} 侧重检查模块搜索路径；提示缺少共享库的 \code{ImportError} 则侧重检查原生依赖。
+\end{faq}
+\begin{faq}{导入时报 libstdc++、GLIBCXX 或其他共享库错误}
+这属于原生库加载问题。可用 \code{ldd build/lowcontrol_py*.so} 查看依赖路径和 \code{not found}，并比较是否意外混用了 Conda 与系统库。根据输出找到缺失的库，再安装对应依赖，或修正构建时选择的库路径。
+\end{faq}
+\begin{faq}{环境依赖解析失败，或者下载超时}
+保留完整错误，区分版本约束冲突与网络连接失败。先查看 \code{conda config --show channels} 和网络状况；使用机构镜像时，按镜像文档设置渠道，并把来源保存在环境记录中。
+\end{faq}
+\begin{faq}{换电脑后能否直接复制整个 Conda 环境文件夹}
+在目标机器上用环境清单创建环境，再重新编译 SDK 扩展。这样可以按目标机器重新配置绝对路径和二进制依赖。源代码、配置、ONNX 模型和环境清单分别保存。
+\end{faq}
+
+\section{使用 venv}
+如果只想沿用系统 Python 并隔离 Python 包，可选择 Python 自带的 venv。参见\href{https://docs.python.org/3.10/library/venv.html}{Python venv 文档}。使用前先退出 Conda 环境，再创建并激活 venv：
+\begin{command}
+sudo apt install python3-venv
+cd ~/noetix_sdk_bumi
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install numpy pyyaml onnxruntime pybind11
+\end{command}
+之后同样将当前 \code{python} 传给 CMake，并在运行时激活同一个 venv。后面的部署步骤使用 Conda 的 \code{bumi_deploy} 环境。若选用 venv，把激活命令换成 \code{source .venv/bin/activate} 即可。

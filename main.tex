@@ -1,0 +1,36 @@
+% !TeX program = xelatex
+\documentclass[UTF8,a4paper,zihao=-4,openany,oneside,fontset=fandol]{ctexbook}
+\input{preamble}
+
+\begin{document}
+\maketitle
+
+\frontmatter
+\input{frontmatter/preface}
+\clearpage
+\setchapterheader{目录}
+\tableofcontents
+
+\mainmatter
+\setchapterheader{第一部分\quad 前置知识}
+\part{前置知识}
+\input{chapters/01-terminal-linux}
+\input{chapters/02-python-cpp}
+\input{chapters/03-conda}
+\input{chapters/04-network-control}
+
+\clearpage
+\setchapterheader{第二部分\quad 部署实践}
+\part{部署实践}
+\input{chapters/05-system}
+\input{chapters/06-software}
+\input{chapters/07-network-gamepad}
+\input{chapters/08-startup}
+\input{chapters/09-operation}
+
+\appendix
+\input{appendices/a-controls}
+\input{appendices/b-notes}
+\input{appendices/c-troubleshooting}
+
+\end{document}

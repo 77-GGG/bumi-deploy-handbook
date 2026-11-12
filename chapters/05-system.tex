@@ -1,0 +1,57 @@
+\chapter{外挂开发与系统组成}
+\setchapterheader{第五章\quad 外挂开发与系统组成}
+\begin{intro}
+\begin{itemize}
+\item 理解笔记本、手柄和运控板各自的职责。
+\item 核对固定 IP、模型文件、控制周期与运行平台。
+\end{itemize}
+\end{intro}
+部署前先回答三个问题：策略在哪里运行，手柄接在哪里，指令通过什么链路送给机器人。外挂开发中，这三个问题都围绕笔记本展开。
+
+\label{chap:architecture}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\small,>=Latex,
+ host/.style={draw=blue!55!black,fill=blue!4,rounded corners=3pt,
+ text width=5.5cm,minimum height=3.1cm,align=left,inner sep=9pt},
+ board/.style={draw=green!50!black,fill=green!5,rounded corners=3pt,
+ text width=4.1cm,minimum height=2cm,align=center,inner sep=9pt}]
+\node[host] (pc) {\textbf{笔记本（外挂主机）}\\
+Ubuntu 22.04 / x86\_64\\静态 IP：\texttt{192.168.55.101}\\
+ONNX 推理与控制循环\\手柄接收器接本机 USB\\\texttt{/dev/input/js0}};
+\node[board,right=2cm of pc] (robot) {\textbf{Bumi 运控板}\\
+\texttt{192.168.55.102}\\运控板不对用户开放};
+\draw[<->,thick] (pc.east) -- node[above,align=center,font=\scriptsize]{网线直连\\后背网口}
+ node[below,align=center,font=\scriptsize]{CycloneDDS\\目标 500 Hz} (robot.west);
+\end{tikzpicture}
+\caption{外挂部署中的主机、通信链路与运控板。策略名义推理频率为 50 Hz。}
+\end{figure}
+
+\begin{longtable}{@{}P{0.19\linewidth}P{0.34\linewidth}P{0.36\linewidth}@{}}
+\toprule
+\textbf{项目} & \textbf{值} & \textbf{说明} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{项目} & \textbf{值} & \textbf{说明} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+运控板 IP & \code{192.168.55.102} & \code{config/dds.xml} 中 Peer 指向它 \\
+笔记本必须配置的静态 IP & \code{192.168.55.101} & 运控板\textbf{只允许}与原版算力板的固定 IP 通信，外挂设备需伪装成原算力板 \\
+原算力板账号 & \code{noetix / bumi} & 若你的 Bumi 自带算力板且在开机，会与笔记本 IP 冲突，需先关闭算力板 \\
+通信中间件 & CycloneDDS 0.11.0，禁用组播，Peer 静态指定 & 配置文件 \code{config/dds.xml} \\
+控制频率 & 目标 500Hz（2ms 控制环），策略名义推理 50Hz（decimation=10） & \code{test_policy.py} 主循环 + \code{bumi_ac.yaml} \\
+策略文件 & \code{policy/policy.onnx}（21 自由度跑步策略） & 模型参数读取 \code{config/bumi_ac.yaml} 的 \code{run:} 段 \\
+手柄 & 澳加狮手柄，接收器插\textbf{笔记本} USB，设备节点 \code{/dev/input/js0} & 运控板接口插不了接收器，手柄数据必须从运行程序的机器直接读取 \\
+\end{longtable}
+
+\begin{remark}{运行平台}
+SDK 使用 Linux 库和设备接口。本手册选择 Ubuntu 22.04 x86\_64，网卡直接连接机器人，手柄接收器直接连接笔记本。Windows 用户可安装 Ubuntu 双系统，在 Ubuntu 中完成部署。
+\end{remark}
+
+\begin{remark}{调试支撑}
+\textbf{调试全程使用机器人吊架}，并在切换控制模式前确认机器人得到稳定支撑。
+\end{remark}
