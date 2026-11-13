@@ -56,4 +56,4 @@ Copy-Item user-manual\_build\main.pdf     bumi-user-manual.pdf
 
 ## 发布
 
-每次改动编译出的 PDF 都会作为附件发到 [Releases](../../releases)。
+每次改动编译出的 PDF 都会作为附件发到 [Releases](https://github.com/77-GGG/bumi-handbooks/releases)。
