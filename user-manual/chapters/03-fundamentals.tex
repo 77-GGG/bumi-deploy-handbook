@@ -1,0 +1,69 @@
+\chapter{开发前的基础知识}
+\setchapterheader{第\thechapter 章\quad 开发前的基础知识}
+
+\begin{intro}
+理解终端、工作目录、Python 扩展、虚拟环境和控制周期，为后面的编译与接口调用建立共同语境。
+\end{intro}
+\section{终端与工作目录}
+终端把输入的命令交给 Shell 执行。开发时经常同时打开几个终端，每个终端都有自己的工作目录和环境。进入一个终端后，先看当前在哪里，再选择项目环境：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+pwd
+ls
+cd ~/noetix_sdk_bumi
+conda activate bumi_deploy
+\end{command}
+\end{minipage}\par
+
+\code{pwd} 显示当前位置，\code{ls} 列出文件，\code{cd} 切换目录。波浪号表示当前用户的主目录。\code{./build}、\code{config/dds.xml} 等相对路径从当前工作目录出发，因此本书的 SDK 命令都从项目根目录执行。
+
+长命令末尾的反斜杠表示续行，下一行仍属于同一条命令。命令后的参数用于指定选项，例如 \code{--parallel 2} 让构建工具同时使用两个任务。
+\section{Python、C++ 与 SDK}
+C++ 源文件先经编译和链接，生成可执行程序或共享库。Python 脚本由解释器执行；当它导入 \code{highcontrol_py} 时，实际加载的是 C++ 经 pybind11 封装的扩展模块。
+
+这意味着 Python 示例也需要先编译 SDK。编译时选用哪个 Python，运行时就继续使用那个环境中的 Python。\code{pip install onnxruntime} 提供 Python 包；CMake 查找的 ONNX Runtime 开发库还包含 C++ 头文件、共享库和 CMake 配置，两者分别服务于 Python 与 C++。
+\section{Conda 与虚拟环境}
+虚拟环境把一个项目所需的解释器和软件包放到独立目录中。Conda 同时管理环境和包，Miniconda 则提供较小的 Conda 安装入口。pip 用于安装 Python 包，本书用 \code{python -m pip} 明确指定当前解释器。
+
+先执行 \code{conda --version} 查看 Conda 是否已安装。尚未安装时，按\href{https://www.anaconda.com/docs/getting-started/miniconda/install/linux-install}{Miniconda Linux 安装说明}选择与 \code{uname -m} 输出匹配的安装器，在自己的用户目录中安装。初始化 Bash 后重新打开终端，再创建环境：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+conda create -n bumi_deploy python=3.10 pip
+conda activate bumi_deploy
+python --version
+python -c "import sys; print(sys.executable)"
+python -m pip --version
+conda info --envs
+\end{command}
+\end{minipage}\par
+
+创建命令执行一次即可。以后每次打开终端，用 \code{conda activate bumi_deploy} 激活；\code{conda deactivate} 退出当前环境。激活会调整当前 Shell 的程序查找路径，环境本身仍保存在磁盘上。
+\begin{concept}{环境与目录各管什么}
+\code{conda activate bumi_deploy} 选择解释器与软件包，\code{cd ~/noetix_sdk_bumi} 选择文件查找的起点。一个终端中完成这两步后，才能同时使用正确的 Python 和项目路径。
+\end{concept}
+编译与部署都使用 \code{bumi_deploy}。下面安装示例所需的 Python 包：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+python -m pip install numpy pyyaml onnxruntime pybind11
+python -c "import numpy, yaml, onnxruntime, pybind11; print('python deps ok')"
+python -m pip check
+\end{command}
+\end{minipage}\par
+
+环境配置完成后，保存版本记录：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+conda env export --no-builds > environment-tested.yml
+python -m pip freeze > requirements-tested.txt
+\end{command}
+\end{minipage}\par
+
+在另一台机器上，根据环境清单重新创建环境，再编译 SDK 扩展。分享清单前移除 YAML 中的本机 \code{prefix:} 路径。
+\section{发布、订阅与回调}
+DDS 把通信数据组织成主题。发布者向主题写入数据，订阅者收到数据后调用注册的函数，这个函数就是回调。SDK 中，程序发布控制命令，同时订阅电机、IMU、遥控器、电池和工作模式。
+
+回调中只做短时间的数据复制和状态更新，把模型推理、文件保存等工作放在其他执行流程中。这样通信和计算可以各自按需要运行。
+\section{控制周期与命令类型}
+运动控制链路的周期为 2 ms，对应 $1/0.002=500$ Hz。HighController 中，一类数据是连续更新的运动输入，另一类是触发一次动作的事件命令。播放示教等事件发出一次后，后续周期回到 \code{DEFAULT}，避免每周期重新触发。
+
+音视频配置有自己的节奏：修改音量、数据开关等 agent 配置时，调用间隔至少 500 ms。运动命令的 2 ms 周期与媒体配置的 500 ms 间隔分别用于不同接口。

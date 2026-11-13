@@ -1,0 +1,72 @@
+\chapter{命令、模式与错误码}
+\setchapterheader{附录 A\quad 命令、模式与错误码}
+\label{app:commands}
+\section{ControlCmd}
+命令值按项目内 SDK 3.1.0 的枚举顺序列出。程序优先使用枚举名称，阅读日志时再对照数值。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.09\linewidth}P{0.34\linewidth}P{0.47\linewidth}@{}}
+\toprule
+\textbf{值} & \textbf{名称} & \textbf{含义} \\
+\midrule\endhead
+0 & \code{WALK} & 走路 \\
+1 & \code{SWING} & 挥手 \\
+2 & \code{SHAKE} & 握手 \\
+3 & \code{CHEER} & 欢呼 \\
+4 & \code{RUN} & 预留，当前不可用 \\
+5 & \code{START} & 失能时使能；其他模式失能 \\
+6 & \code{SWITCH} & 准备 \\
+7 & \code{STARTTEACH} & 开始示教 \\
+8 & \code{SAVETEACH} & 保存示教 \\
+9 & \code{ENDTEACH} & 结束示教，已弃用 \\
+10 & \code{PLAYTEACH} & 播放指定示教 \\
+11 & \code{DANCE} & 舞蹈 1 \\
+12 & \code{FALLTOSTAND} & 倒地起身 \\
+13 & \code{STANDTOFALL} & 起身倒地 / 收纳 \\
+14 & \code{DANCE1} & 舞蹈 2 \\
+15 & \code{DANCE2} & 舞蹈 3 \\
+16 & \code{TEAR} & 擦泪 \\
+17 & \code{DEFAULT} & 空指令 \\
+\bottomrule\end{longtable}\endgroup
+
+\section{出厂运动工作模式}
+\code{workmode} 表示 HighController 出厂运控状态。它与 \code{ControlCmd} 是两套编号。例如命令 START 的值为 5，失能状态的编号为 30；根据字段名称分别查表。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.14\linewidth}P{0.29\linewidth}P{0.14\linewidth}P{0.29\linewidth}@{}}
+\toprule
+\textbf{workmode} & \textbf{含义} & \textbf{workmode} & \textbf{含义} \\
+\midrule\endhead
+0 & 使能 & 23 & 播放示教 \\
+1 & 准备 & 26 & 保护 \\
+2 & 走路 & 27 & 倒地起身 \\
+5 & 舞蹈 & 28 & 起身倒地 \\
+8 & 打招呼 & 29 & 保存示教 2 \\
+9 & 握手 & 30 & 失能 \\
+10 & 欢呼 & 31 & 舞蹈 1 \\
+11 & 开始示教 & 32 & 舞蹈 2 \\
+12 & 结束示教 & 33 & 擦泪 \\
+14 & 保存示教 1 &  &  \\
+\bottomrule\end{longtable}\endgroup
+
+\section{电机错误码}
+下列编号采用十六进制。记录日志时同时保存电机编号、错误码和当时的温度、位置与力矩。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.3\linewidth}P{0.6\linewidth}@{}}
+\toprule
+\textbf{十六进制码} & \textbf{说明} \\
+\midrule\endhead
+\code{0x02} & 过流 \\
+\code{0x03} & 欠压 \\
+\code{0x04} & 编码器错误 \\
+\code{0x06} & 刹车过压 \\
+\code{0x07} & DRV 错误 \\
+\code{0x08} & 过压 \\
+\code{0x09} & 欠压 \\
+\code{0x0A} & 过流 \\
+\code{0x0B} & MOS 过温 \\
+\code{0x0C} & 线圈过温 \\
+\code{0x0D} & 通信丢失 \\
+\code{0x0E} & 过载 \\
+\bottomrule\end{longtable}\endgroup

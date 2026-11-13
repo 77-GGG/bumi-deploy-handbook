@@ -1,0 +1,70 @@
+\usepackage{fontspec}
+\usepackage[margin=1in,headheight=16pt]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=2em,topsep=4pt}
+\usepackage{booktabs,longtable,array}
+\usepackage[table]{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{fvextra}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,fit,calc}
+\usepackage{fancyhdr}
+\usepackage{needspace}
+\PassOptionsToPackage{obeyspaces}{url}
+\usepackage{xurl}
+\usepackage{hyperref}
+\hypersetup{unicode=true,hypertexnames=false,colorlinks=true,linkcolor=blue!45!black,
+ urlcolor=blue!55!black,bookmarksnumbered=true,
+ pdftitle={Bumi 机器人综合使用手册},
+ pdfsubject={硬件、日常使用与 SDK 开发}}
+\urlstyle{tt}
+\setmonofont{Latin Modern Mono}[Scale=MatchLowercase,BoldFont=lmmonolt10-bold.otf]
+\setlength{\emergencystretch}{2em}
+\setlength{\parskip}{3pt}
+\setlength{\LTpre}{6pt}
+\setlength{\LTpost}{8pt}
+\renewcommand{\arraystretch}{1.25}
+\setcounter{tocdepth}{1}
+\setcounter{secnumdepth}{1}
+\newcommand{\handbookchaptertitle}{}
+\newcommand{\setchapterheader}[1]{\gdef\handbookchaptertitle{#1}}
+\newcommand{\handbookpagestyle}{%
+  \fancyhf{}%
+  \fancyhead[L]{\small\kaishu\handbookchaptertitle}%
+  \fancyhead[R]{\small\kaishu\thepage}%
+  \renewcommand{\headrulewidth}{0.4pt}%
+  \renewcommand{\footrulewidth}{0pt}%
+}
+\pagestyle{fancy}
+\handbookpagestyle
+\fancypagestyle{plain}{\handbookpagestyle}
+\DeclareRobustCommand{\code}[1]{{\small\nolinkurl{#1}}}
+\newcommand{\stepref}[1]{第\,#1\,步（第\,\pageref{step:#1}\,页）}
+\tcbset{handbook/.style={enhanced,breakable,boxrule=0.4pt,arc=3pt,
+ left=6pt,right=6pt,top=5pt,bottom=5pt,fonttitle=\bfseries,
+ before skip=8pt,after skip=8pt}}
+\newtcolorbox{intro}{handbook,colback=green!5,colframe=green!50!black,
+ colbacktitle=green!50!black,coltitle=white,title=本章内容}
+\newtcolorbox{remark}[1]{handbook,colback=yellow!5,colframe=yellow!50!black,
+ colbacktitle=yellow!50!black,coltitle=white,title={#1}}
+\newtcolorbox{concept}[1]{handbook,colback=cyan!3,colframe=cyan!50!black,
+ colbacktitle=cyan!50!black,coltitle=white,title={#1}}
+\newtcolorbox{expected}{handbook,colback=blue!4,colframe=blue!50!black,
+ colbacktitle=blue!50!black,coltitle=white,title=预期结果}
+\newtcolorbox{faq}[1]{handbook,colback=yellow!4,colframe=yellow!45!black,
+ colbacktitle=yellow!45!black,coltitle=white,title={#1}}
+\DefineVerbatimEnvironment{command}{Verbatim}{fontsize=\small,
+ baselinestretch=1,frame=single,framesep=2mm,rulecolor=\color{black!65},
+ samepage=true,breaklines=true,breakanywhere=true,tabsize=4,showspaces=false,showtabs=false}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\usepackage{fontawesome5}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+\newcommand{\official}{https://noetixrobotics.feishu.cn/docx/As2adPO27odPBfxQw1ucK6N4nNe}
+\newcommand{\officiallink}[2]{\href{\official\##1}{#2}}
+\newcommand{\diagram}[2]{\begin{figure}[H]\centering #2\caption{#1}\end{figure}}
+\tikzset{box/.style={draw=cyan!50!black,fill=cyan!4,rounded corners,align=center,minimum height=11mm,text width=36mm,font=\small},flow/.style={-{Stealth},thick,draw=black!65}}

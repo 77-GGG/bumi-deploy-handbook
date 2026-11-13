@@ -1,0 +1,74 @@
+\chapter{系统架构与网络连接}
+\setchapterheader{第\thechapter 章\quad 系统架构与网络连接}
+
+\begin{intro}
+明确程序运行的位置，连接算力板，并让 DDS 客户端与运控板建立通信。
+\end{intro}
+\section{程序运行在哪里}
+用户程序可以运行在机器人算力板，也可以运行在外接 Ubuntu 主机。HighController 调用运控板上的出厂运动能力；LowController 由用户程序生成 21 个关节命令，再经运控板送往电机。两种方式都能接收机器人硬件状态。
+\diagram{SDK 与机器人硬件的关系}{
+\begin{tikzpicture}[node distance=12mm]
+\node[box,text width=75mm] (client) {算力板或外接主机\\用户程序与 SDK：High / Low / Media};
+\node[box,text width=75mm,below=of client] (motion) {运控板 RK3576\\运动服务、硬件状态、音视频交互服务};
+\node[box,text width=75mm,below=of motion] (hardware) {关节电机、IMU、电池、音频外设};
+\draw[flow,<->] (client)--node[right,font=\small]{DDS / 以太网}(motion);
+\draw[flow,<->] (motion)--(hardware);
+\end{tikzpicture}}
+SDK 的通信实现使用 CycloneDDS 0.11.0。运动命令与硬件状态以 500 Hz 的节奏交换。开发时先确认网络可达，再运行控制程序。
+\section{有线网络}
+运控板默认地址为 \code{192.168.55.102}，算力板默认地址为 \code{192.168.55.101}。外接主机使用同一网段中未被占用的地址，例如 \code{192.168.55.100/24}。
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+ip -br addr
+ip route
+ping -c 4 192.168.55.102
+\end{command}
+\end{minipage}\par
+
+\code{ip -br addr} 显示网卡及地址。网卡名可能是 \code{enp3s0}、\code{eno1} 或其他名称，按实际输出识别有线网卡。机器人算力板已经使用 \code{.101} 时，外接主机选择其他地址。
+\section{登录算力板}
+通过有线网络登录：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+ssh noetix@192.168.55.101
+\end{command}
+\end{minipage}\par
+
+连接后输入算力板密码。无线连接时，先在 APP 的连接信息中查看机器人 Wi-Fi 地址，再用该地址和端口 2222：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+ssh -p 2222 noetix@ROBOT_WIFI_IP
+\end{command}
+\end{minipage}\par
+
+将 \code{ROBOT_WIFI_IP} 换成 APP 显示的实际地址。无线入口经机器人运控板的 Wi-Fi 转发到算力板。
+\section{DDS 配置}
+在 SDK 根目录中查看 \code{config/dds.xml}。本地 SDK 的配置使用 UDP，关闭组播，并把运控板地址写成发现节点：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+<CycloneDDS>
+  <Domain id="any">
+    <General>
+      <Transport>udp</Transport>
+      <AllowMulticast>false</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <Peers>
+        <Peer address="192.168.55.102"/>
+      </Peers>
+      <SPDPInterval>50</SPDPInterval>
+    </Discovery>
+  </Domain>
+</CycloneDDS>
+\end{command}
+\end{minipage}\par
+
+通过环境变量指定配置文件：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+export CYCLONEDDS_URI="file://$(pwd)/config/dds.xml"
+\end{command}
+\end{minipage}\par
+
+例程也会设置该变量；运行前检查它指向当前项目中的文件。多网卡主机可以结合路由表确定到 \code{192.168.55.102} 的出口。

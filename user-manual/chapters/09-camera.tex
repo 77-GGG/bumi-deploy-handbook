@@ -1,0 +1,36 @@
+\chapter{相机采集与图像处理}
+\setchapterheader{第\thechapter 章\quad 相机采集与图像处理}
+
+\label{chap:camera}
+\begin{intro}
+区分相机硬件采集、APP 图传和媒体交互输入，处理 RealSense 相机与系统采集服务的占用关系。
+\end{intro}
+\section{选择图像入口}
+标准版 DC\_V93 的参数见第一章。教育版 EDU\_Pro、EDU\_MAX、EDU\_Tailor 等配有算力板的版本，相机连接算力板，开发程序可以通过硬件 SDK 读取图像。D435i 使用\href{https://github.com/IntelRealSense/librealsense}{librealsense}。
+
+相机采集得到的图像可用于识别、定位、导航或应用逻辑。若还需要给机器人的语音交互 agent 提供画面，将采集结果转换为媒体接口要求的 YUYV 数据，再发布外部视频流。
+\section{停止已有采集服务}
+机器人原有图传服务可能正在使用相机。开始自己的采集程序前，在算力板停止该服务：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+sudo systemctl stop noetix-video-capture.service
+systemctl status noetix-video-capture.service
+\end{command}
+\end{minipage}\par
+
+\code{stop} 停止本次运行。若后续开发都由自己的程序采集，可以关闭开机启动：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+sudo systemctl disable noetix-video-capture.service
+\end{command}
+\end{minipage}\par
+
+完成开发、准备恢复系统图传时，先结束自己的相机程序，再恢复服务：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+sudo systemctl start noetix-video-capture.service
+sudo systemctl enable noetix-video-capture.service
+\end{command}
+\end{minipage}\par
+
+\code{start} 启动当前服务，\code{enable} 恢复开机自动启动。

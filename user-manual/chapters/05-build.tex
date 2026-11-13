@@ -1,0 +1,141 @@
+\chapter{准备环境与编译 SDK}
+\setchapterheader{第\thechapter 章\quad 准备环境与编译 SDK}
+
+\begin{intro}
+下载 SDK，准备 Ubuntu 与 Conda 依赖，生成 C++ 例程和 Python 扩展；另列出官方 ARM Docker 环境的使用方法。
+\end{intro}
+\section{获取 SDK 与模型}
+从\href{https://github.com/Noetix-Robotics/noetix_sdk_bumi}{Bumi SDK 仓库}获取程序：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+cd ~
+git clone https://github.com/Noetix-Robotics/noetix_sdk_bumi.git
+cd ~/noetix_sdk_bumi
+\end{command}
+\end{minipage}\par
+
+项目内下载目录名为 \code{noetix_sdk_bumi-main} 时，后续路径相应替换。关节模型 \code{Bumi_URDF.zip} 在官方手册的 URDF 小节，训练框架位于\href{https://github.com/Noetix-Robotics/noetix_bumi_lab}{noetix\_bumi\_lab}。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.33\linewidth}P{0.59\linewidth}@{}}
+\toprule
+\textbf{目录或文件} & \textbf{用途} \\
+\midrule\endhead
+\code{build.sh} & SDK 构建脚本 \\
+\code{CMakeLists.txt} & 依赖查找、Python 扩展和可执行目标 \\
+\code{config/} & DDS 与策略配置 \\
+\code{dds/} & 按 CPU 架构区分的 DDS 库 \\
+\code{examples/cpp/} & C++ 例程 \\
+\code{examples/py/} & Python 例程 \\
+\code{include/} & 控制器与公共结构体头文件 \\
+\code{lib/} & SDK 原生库 \\
+\code{policy/} & 策略模型 \\
+\code{pybind/} & Python 绑定源码 \\
+\code{build/} & 编译生成的扩展模块与例程 \\
+\bottomrule\end{longtable}\endgroup
+
+\section{Ubuntu 依赖}
+官方编译环境说明采用 Ubuntu 22.04。先安装工具链和开发包：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+sudo apt update
+sudo apt install -y build-essential git cmake \
+  libeigen3-dev libfmt-dev pybind11-dev python3-dev \
+  python3-pip libyaml-cpp-dev libglib2.0-dev \
+  libboost-all-dev libgoogle-glog-dev \
+  libprotobuf-dev protobuf-compiler
+\end{command}
+\end{minipage}\par
+
+本地 SDK 使用 C++17，CMake 最低版本声明为 3.16，并查找 ONNX Runtime、Eigen3、Threads 和 pybind11；策略目标还链接 yaml-cpp。
+
+官方环境文档提供了 x86\_64 的 CMake 3.26.3 包、ARM 的 3.31.8 安装器，以及 ONNX Runtime、glog、spdlog 等附件。需要自行构建这些依赖时，从\href{https://noetixrobotics.feishu.cn/docx/PP2BdXkSUoQ2VOxctJKcEdHanAg}{SDK 编译环境部署流程}获取对应架构的资源。先运行 \code{uname -m} 确认 CPU 架构，再选安装包。
+\section{ONNX Runtime 开发库}
+CMake 需要找到 ONNX Runtime 的开发安装。使用官方环境说明中的源码附件构建时，在解压后的源码目录执行：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+./build.sh --config Release --build_shared_lib --parallel 2
+cd build/Linux/Release
+sudo make install
+sudo ldconfig
+\end{command}
+\end{minipage}\par
+
+这里的 \code{build.sh} 属于 ONNX Runtime 源码目录。SDK 自身也有同名脚本，执行前先用 \code{pwd} 确认所在目录。
+
+如果开发库已安装在自定义目录，配置 SDK 时用 \code{onnxruntime_DIR} 指向包含 \code{onnxruntimeConfig.cmake} 的目录。\code{python -m pip install onnxruntime} 用于 Python 推理依赖，C++ 构建继续使用开发库。
+\section{选择 bumi\_deploy 并构建}
+按照第三章创建环境并安装 Python 包后，在 SDK 根目录配置：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+conda activate bumi_deploy
+cd ~/noetix_sdk_bumi
+cmake -S . -B build \
+  -DPYBIND11_FINDPYTHON=ON \
+  "-DPython_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" \
+  "-Dpybind11_DIR=$(python -m pybind11 --cmakedir)"
+cmake --build build --parallel 2
+\end{command}
+\end{minipage}\par
+
+这组参数把 pybind11 和 Python 都指向当前环境。若 \code{build/} 已由其他解释器配置，先把它改名保存，例如 \code{mv build build-before-conda}，再重新配置。
+\begin{expected}
+\code{build/} 中生成 \code{example_high}、\code{example_low}、\code{example_policy}、\code{example_media}，以及 \code{highcontrol_py}、\code{lowcontrol_py}、\code{mediacontrol_py} 对应的扩展模块。
+\end{expected}
+\section{检查导入并启动例程}
+先检查 Python 和模块位置：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+python -c "import sys; sys.path.insert(0, './build'); import highcontrol_py; print(sys.executable); print(highcontrol_py.__file__)"
+\end{command}
+\end{minipage}\par
+
+完成网络配置并准备好吊架后，按开发任务选一个例程运行：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+python examples/py/test_high.py
+\end{command}
+\end{minipage}\par
+
+低层控制使用 \code{examples/py/test_low.py}，策略示例使用 \code{examples/py/test_policy.py}。C++ 的相应程序位于 \code{build/}，例如：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+sudo ./build/example_high
+\end{command}
+\end{minipage}\par
+
+\section{使用官方 ARM Docker 镜像}
+官方提供的 \code{noetix_dds.tar.gz} 面向 aarch64。解压后包含镜像 \code{noetix_dds.tar} 和 Compose 配置。导入镜像并创建工作目录：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+tar -zxvf noetix_dds.tar.gz
+docker load -i noetix_dds.tar
+docker images
+mkdir -p /home/noetix/work
+\end{command}
+\end{minipage}\par
+
+Compose 中保留 host 网络和工作目录映射：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+services:
+  noetix_dds:
+    image: noetix_dds:arm64
+    container_name: noetix_dds
+    network_mode: host
+    volumes:
+      - /home/noetix/work:/home/noetix/work:rw
+    stdin_open: true
+    tty: true
+\end{command}
+\end{minipage}\par
+
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+docker compose -f noetix_dds.yaml up -d
+docker ps
+docker exec -it noetix_dds /bin/bash
+\end{command}
+\end{minipage}\par
+
+把 SDK 放到映射的工作目录中，在容器内继续配置和编译。容器中的路径、Python 和开发库按容器环境检查；在主机创建的 Conda 环境由主机终端使用。

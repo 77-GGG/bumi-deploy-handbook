@@ -1,0 +1,136 @@
+\chapter{调用出厂动作}
+\setchapterheader{第\thechapter 章\quad 调用出厂动作}
+
+\label{chap:high}
+\begin{intro}
+使用 HighController 获取状态、发送运动输入和触发出厂动作，理解使能切换与示教播放的调用方法。
+\end{intro}
+\section{HighController 的作用}
+HighController 将应用程序中的动作请求交给机器人的出厂运动控制程序。例如，视觉程序识别到来人后可以请求挥手，语音程序可以把交互结果转换为动作命令。应用程序同时接收电机、IMU、电池和工作模式，了解机器人正在做什么。
+\diagram{HighController 的数据流程}{
+\begin{tikzpicture}[node distance=13mm]
+\node[box,text width=64mm] (app) {应用逻辑：视觉、语音、遥控器};
+\node[box,text width=64mm,below=of app] (sdk) {HighController\\发布运动输入与动作命令};
+\node[box,text width=64mm,below=of sdk] (server) {运控板出厂控制程序\\动作调度与关节控制};
+\draw[flow] (app)--(sdk);\draw[flow,<->] (sdk)--node[right,font=\small]{DDS}(server);
+\end{tikzpicture}}
+\section{创建对象与订阅状态}
+C++ 通过 \code{HighController::Instance()} 取得单例，Python 通过 \code{HighController.instance()} 取得单例。\code{init()} 初始化通信，返回布尔值。随后注册 \code{subscribe_robot_hardware_status(callback)}，在回调中接收 \code{RobotHardwareStatus}。
+
+下面的 Python 示例仅订阅并显示工作模式，可保存为 SDK 根目录中的 \code{read_status.py}：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+import os
+import sys
+import time
+
+os.environ["CYCLONEDDS_URI"] = "file://" + os.path.abspath("config/dds.xml")
+sys.path.insert(0, os.path.abspath("build"))
+from highcontrol_py import HighController
+
+ctrl = HighController.instance()
+if not ctrl.init():
+    raise RuntimeError("HighController init failed")
+
+last_mode = None
+def on_status(status):
+    global last_mode
+    if status.workmode != last_mode:
+        last_mode = status.workmode
+        print("workmode:", last_mode)
+
+ctrl.subscribe_robot_hardware_status(on_status)
+try:
+    while True:
+        time.sleep(0.1)
+except KeyboardInterrupt:
+    pass
+\end{command}
+\end{minipage}\par
+
+在项目根目录执行 \code{python read_status.py}。工作模式变化时打印一次，使用 \code{Ctrl+C} 结束状态读取。
+\section{硬件状态包含哪些数据}
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.28\linewidth}P{0.63\linewidth}@{}}
+\toprule
+\textbf{成员} & \textbf{内容} \\
+\midrule\endhead
+\code{imu_data} & IMU 四元数、角速度、线加速度及协方差 \\
+\code{remote_data} & 两个摇杆轴和 14 个按键值 \\
+\code{motor_data} & 21 个电机的状态数组 \\
+\code{bms_data} & 电池温度、告警、荷电状态和健康状态 \\
+\code{workmode} & 当前出厂运动工作模式 \\
+\bottomrule\end{longtable}\endgroup
+
+\code{MotorState} 包含 \code{pos}、\code{vel}、\code{tau}、\code{motor_id}、\code{error} 和 \code{temperature}，分别表示位置、速度、力矩、电机编号、错误码和温度。角度使用弧度。
+
+\code{NingImuData} 中，\code{ori[4]} 为姿态四元数，\code{angular_vel[3]} 为角速度，\code{linear_acc[3]} 为线加速度；相应的 \code{*_cov[9]} 为协方差数组。四元数的分量顺序在计算前应与实际绑定及模型约定对应。
+
+\code{RobotBmsData} 的四个成员为 \code{battery_temp_}、\code{battery_alarm_}、\code{battery_soc_} 和 \code{battery_soh_}。处理 Python 对象时保留字段末尾的下划线。
+\section{发布命令}
+发布接口在 C++ 中的原型为：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+void publish_cmd(double x, double y, double z,
+                 ControlCmd action, uint16_t index);
+\end{command}
+\end{minipage}\par
+
+Python 使用同名方法，参数同样为五个：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+ctrl.publish_cmd(x, y, z, action, index)
+\end{command}
+\end{minipage}\par
+
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.17\linewidth}P{0.74\linewidth}@{}}
+\toprule
+\textbf{参数} & \textbf{含义} \\
+\midrule\endhead
+\code{x} & 前后方向输入，范围 [-1, 1]；正值向前 \\
+\code{y} & 左右平移输入，范围 [-1, 1]；正值向左 \\
+\code{z} & 转向输入，范围 [-1, 1]；正值左转 \\
+\code{action} & \code{ControlCmd} 动作命令 \\
+\code{index} & 示教文件等动作资源的索引 \\
+\bottomrule\end{longtable}\endgroup
+
+这些运动输入是归一化输入值，实际运动效果由运控程序决定。发布调用间隔至少 2 ms。出厂控制在 WALK、SWING、SHAKE、CHEER、TEAR、PLAYTEACH、DEFAULT 等模式下处理相应运动输入。
+\section{使能与动作事件}
+\begin{remark}{START 是状态切换命令}
+当前 \code{workmode == 30}（失能）时，\code{START} 执行使能；在其他工作模式下，\code{START} 会立即失能。调用前先读取工作模式，并把这个条件写入应用逻辑。
+\end{remark}
+\code{SWITCH} 用于准备，\code{WALK} 进入走路，\code{SWING}、\code{SHAKE}、\code{CHEER} 分别触发挥手、握手和欢呼。动作命令全集与工作模式编号见附录\ref{app:commands}。
+
+事件命令发送一次，后续周期继续使用 \code{DEFAULT}。下面展示一个动作事件的发送形式；执行前机器人已处于适合该动作的站立状态，并完成使能与准备：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+from highcontrol_py import ControlCmd
+
+ctrl.publish_cmd(0.0, 0.0, 0.0, ControlCmd.CHEER, 0)
+time.sleep(0.002)
+ctrl.publish_cmd(0.0, 0.0, 0.0, ControlCmd.DEFAULT, 0)
+\end{command}
+\end{minipage}\par
+
+在持续运行的控制循环中，按键按下沿产生一次事件。每周期同时根据摇杆更新连续运动输入，避免把持续按住按键当成反复触发动作。
+\section{示教与播放}
+示教按“开始、记录、保存、播放”的顺序进行。\code{STARTTEACH} 开始示教，\code{SAVETEACH} 保存示教；\code{ENDTEACH} 在官方接口表中标为弃用。
+
+播放时指定动作索引，\code{PLAYTEACH} 发出一次后恢复空指令：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+file_index = 0
+ctrl.publish_cmd(0.0, 0.0, 0.0, ControlCmd.PLAYTEACH, file_index)
+time.sleep(0.002)
+ctrl.publish_cmd(0.0, 0.0, 0.0, ControlCmd.DEFAULT, file_index)
+\end{command}
+\end{minipage}\par
+
+持续发送 \code{PLAYTEACH} 会反复重置播放过程。观察到动作停在开头时，先检查这一处调用。
+\section{保护状态与例程}
+当 IMU 检测到姿态超过站立保护阈值时，出厂控制进入保护状态，关节失能并终止当前策略。应用程序通过 \code{workmode} 识别保护状态，再按机器人姿态安排后续操作。
+
+官方 HighController 示例对应本地 \code{examples/cpp/example_high.cpp} 和 \code{examples/py/test_high.py}。阅读顺序可以是：初始化、注册回调、读取输入、检测按键边沿、选择命令、发布命令。教育版从本地手柄取输入时，使用 AoLionDriver，见下一章。

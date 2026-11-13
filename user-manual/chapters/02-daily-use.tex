@@ -1,0 +1,51 @@
+\chapter{开机、连接与充电}
+\setchapterheader{第\thechapter 章\quad 开机、连接与充电}
+
+\begin{intro}
+完成电池安装、启动、APP 连接、动作操作和关机充电，了解机器人运动所需的场地与摆放条件。
+\end{intro}
+\section{准备场地}
+选择平整、干燥、防滑的地面。起身和收纳时，周围留出约 $3\times3$ m 的空间；舞蹈和移动时，根据动作幅度继续扩大活动区域，让人员、线缆和物品处于运动范围外。
+
+雨水、潮湿和水雾会影响电气部件。松软地面、台阶、凹凸路面以及超过 20° 的坡面也会改变支撑条件。第一次使用从平整地面开始，开发调试全程使用吊架。
+\section{安装电池与启动}
+\begin{enumerate}
+\item 从包装中取出机器人，放成稳定坐姿。
+\item 将电池插入背部电池仓，确认卡扣锁定。
+\item 短按电源键，看到指示灯后再长按，直到出现流水灯，等待启动完成。
+\item 按操作要求将机器人面朝上平放，双腿伸直，手臂自然放在腰部两侧，给关节回零留出空间。
+\end{enumerate}
+\begin{remark}{起身前的姿态}
+“一键起身”从面朝上平躺的姿态开始。保持身体平放、四肢自然展开，关节处于可活动范围内。使用“辅助起身”时，按该功能的要求扶持机器人站立，再进行使能。
+\end{remark}
+\section{使用 Noetix Run}
+在手机上安装 Noetix Run。iPhone 可通过\href{https://apps.apple.com/cn/app/noetix-run/id6751874215}{App Store 页面}安装；Android 下载二维码位于\officiallink{doxcn9WNtopSlikdBsw6SrXBVJ7}{官方 APP 章节}。打开 APP 后，按界面完成激活、绑定和设备连接，再使用起身、移动、基本动作、示教、舞蹈、动作库、图传和语音功能。
+
+手机与机器人之间使用蓝牙和 Wi-Fi 通信，官方连接图同时给出了这两条链路。配网时按 APP 提示选择网络，保持手机和机器人的连接条件。
+\diagram{手机与机器人的连接关系}{
+\begin{tikzpicture}[node distance=18mm]
+\node[box] (phone) {手机\\Noetix Run};
+\node[box,right=42mm of phone] (robot) {Bumi};
+\node[box,above right=15mm and 3mm of phone] (wifi) {Wi-Fi 网络};
+\draw[flow,<->] (phone)--node[below,font=\small]{蓝牙}(robot);
+\draw[flow,<->] (phone)--(wifi);
+\draw[flow,<->] (robot)--(wifi);
+\end{tikzpicture}}
+\begin{remark}{保留蓝牙配对记录}
+完成连接后保留手机系统中的设备配对记录。官方手册指出，使用“忽略设备”会清除蓝牙记录，之后可能需要售后协助恢复连接。
+\end{remark}
+APP 的逐项操作见\href{http://app-file.noetixrobotics.com/page/appUseCn.html}{Noetix Run 使用说明}。附录\ref{app:resources}按操作顺序列出了官方视频入口。
+\section{移动与动作切换}
+先完成起身并确认站稳，再使用移动或动作功能。每次切换后观察机器人当前状态，等前一个动作完成再进行下一项操作。快速连续切换会叠加身体惯性。
+
+机器人行走时，控制器会继续输出关节力矩。需要搬动机器人时，先停止移动，再按收纳与关机流程操作。关节运动时，让手、衣物和线缆离开关节间隙。
+\section{收纳与关机}
+\begin{enumerate}
+\item 在 APP 中执行“一键收纳”，等待机器人进入稳定坐姿。
+\item 长按电源键关机，确认设备停止工作。
+\item 按下电池卡扣，取出电池。
+\end{enumerate}
+\section{充电}
+将取出的电池放到配套充电底座并接好适配器，再把充电器接入交流电源。官方操作示例使用 220 V 插座，充电器输入范围见上一章。
+
+充电过程中指示灯闪烁，充满后无指示。充电完成后断开充电器，妥善保存电池和线缆；下次使用时重新装入机器人。

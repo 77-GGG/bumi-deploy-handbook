@@ -1,35 +1,19 @@
-# LaTeX build products
-/_build/
+# LaTeX 编译缓存与中间产物（各子目录另有自己的 .gitignore）
+_build/
 *.aux
 *.bbl
-*.bcf
 *.blg
 *.fdb_latexmk
 *.fls
-*.idx
-*.ilg
-*.ind
-*.lof
 *.log
-*.lot
-*.nav
 *.out
-*.run.xml
-*.snm
 *.synctex.gz
 *.toc
-*.vrb
 *.xdv
-/main.pdf
 
-# Local packages and editor state
-*.zip
+# 编辑器与系统文件
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-*.swp
-*.swo
 *~
-
-# docs/*.pdf are tracked reading copies

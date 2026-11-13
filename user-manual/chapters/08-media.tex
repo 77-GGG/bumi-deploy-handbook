@@ -1,0 +1,98 @@
+\chapter{音频与语音交互开发}
+\setchapterheader{第\thechapter 章\quad 音频与语音交互开发}
+
+\label{chap:media}
+\begin{intro}
+使用 MediaController 订阅状态、调整交互配置、收发音频和视频流，掌握媒体数据格式及配置调用间隔。
+\end{intro}
+\section{媒体控制器}
+教育版开放 MediaController。它通过 DDS 与运控板上的语音交互模块通信，控制扬声器、麦克风以及交互 agent 的部分配置。使用 \code{MediaController::Instance()} 或 Python 的 \code{MediaController.instance()} 取得对象，随后调用 \code{init()}。
+
+媒体开发有四类任务：系统状态控制，交互配置，音频数据流，视频数据流。\code{subscribe_system_status} 接收状态变化，\code{subscribe_system_error} 接收错误信息。\code{SystemStatus} 带有报文头、当前状态和变化原因；\code{SystemError} 带有报文头、错误码和错误消息。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.4\linewidth}P{0.5\linewidth}@{}}
+\toprule
+\textbf{控制值} & \textbf{作用} \\
+\midrule\endhead
+\code{TO_WAKEUP} & 唤醒语音交互系统 \\
+\code{TO_SLEEP} & 进入休眠 \\
+\code{TO_RESET} & 重启语音交互系统 \\
+\bottomrule\end{longtable}\endgroup
+
+当前状态包含 \code{READY}、\code{SLEEPED}、\code{WAKEUPED} 和 \code{EXIT}。变化原因可以区分系统启动、命令重启、语音或命令唤醒、语音或命令休眠、超时休眠和错误休眠。
+\section{配置调用的时间间隔}
+\begin{remark}{两次配置调用至少间隔 500 ms}
+音量、超时和数据导向开关等 agent 配置接口，每次调用后留出至少 500 ms，再执行下一次配置调用。把配置放在初始化或用户操作流程中，媒体数据流按各自采样节奏处理。
+\end{remark}
+音量范围为 0--200；休眠超时使用毫秒。\code{get_volume} / \code{set_volume} 获取和设置音量，\code{get_timeout} / \code{set_timeout} 获取和设置无响应休眠时间。
+
+下面的 Python 例子显示状态并设置一次音量，可保存为 SDK 根目录中的 \code{media_status.py}：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+import os
+import sys
+import time
+
+os.environ["CYCLONEDDS_URI"] = "file://" + os.path.abspath("config/dds.xml")
+sys.path.insert(0, os.path.abspath("build"))
+from mediacontrol_py import MediaController
+
+ctrl = MediaController.instance()
+if not ctrl.init():
+    raise RuntimeError("MediaController init failed")
+
+ctrl.subscribe_system_status(lambda status: print("state:", status.value))
+ctrl.subscribe_system_error(lambda error: print("error:", error.code, error.message))
+time.sleep(0.5)
+ctrl.set_volume(80)
+time.sleep(0.5)
+
+try:
+    while True:
+        time.sleep(0.1)
+except KeyboardInterrupt:
+    pass
+\end{command}
+\end{minipage}\par
+
+\section{交互配置与数据导向}
+读写开关的方法采用 \code{get_} 与 \code{set_} 前缀。下表列出其余名称部分，组合后即可在头文件中找到完整接口。例如第一项的写接口是 \code{set_audio_cue_enable(bool)}。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.57\linewidth}P{0.34\linewidth}@{}}
+\toprule
+\textbf{配置名称} & \textbf{作用} \\
+\midrule\endhead
+\code{audio_cue_enable} & 交互提示音 \\
+\code{internal_capture_audio_data_to_agent_enable} & 内部麦克风音频输入 agent \\
+\code{external_custom_audio_data_to_agent_enable} & 外部音频输入 agent \\
+\code{internal_agent_audio_data_to_playback_enable} & agent 回复输出到内部扬声器 \\
+\code{external_custom_audio_data_to_playback_enable} & 外部音频输出到内部扬声器 \\
+\code{internal_capture_video_data_to_agent_enable} & 内部视频输入 agent \\
+\code{external_custom_video_data_to_agent_enable} & 外部视频输入 agent \\
+\code{external_custom_audio_data_to_agent_use_internal_3a} & 外部音频使用内部 3A 算法 \\
+\bottomrule\end{longtable}\endgroup
+
+唤醒与回复词接口包括 \code{get_wakeup_words}、\code{add_wakeup_words}、\code{reset_wakeup_words}，以及 \code{get/set_wakeup_response_words} 和 \code{get/set_sleep_response_words}。添加唤醒词会追加用户词语，恢复默认会清除用户追加内容。
+\section{音频流格式}
+\code{AudioStream} 包含报文头 \code{header}、微秒时间戳 \code{timestamp_us}、通道数 \code{channels}、采样率 \code{sample_rate}、格式 \code{format}、时长 \code{duration_ms} 和采样数组 \code{audio_data}。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.33\linewidth}P{0.12\linewidth}P{0.19\linewidth}P{0.25\linewidth}@{}}
+\toprule
+\textbf{用途} & \textbf{通道数} & \textbf{采样率} & \textbf{格式} \\
+\midrule\endhead
+采集输入 / 输出 & 8 & 16000 Hz & 2：小端 16 位 \\
+扬声器播放输入 / 输出 & 2 & 16000 Hz & 2：小端 16 位 \\
+\bottomrule\end{longtable}\endgroup
+
+采样数据按通道交错排列。例如双声道是左、右、左、右依次排列。时长为 $t$ 秒、采样率为 $f_s$、通道数为 $c$ 时，采样数组元素个数为 $t f_s c$。
+
+\code{subscribe_internal_audio_capture} 接收内部麦克风采集流，\code{subscribe_internal_audio_playback} 接收内部播放流。\code{publish_external_audio_stream} 将外部音频交给 agent，\code{publish_external_audio_playback_stream} 将外部音频交给扬声器。采集和播放各有 \code{pause_audio_*} 与 \code{resume_audio_*} 接口。
+\section{视频流接口}
+\code{VideoStream} 包含报文头、微秒时间戳、格式、宽、高、帧率和字节数组 \code{video_data}。官方媒体接口当前支持格式值 1，即 YUYV。
+
+未配算力板的 Bumi 可用 \code{subscribe_internal_video_capture} 订阅内部相机，通过 \code{pause_video_capture} 和 \code{resume_video_capture} 控制采集。配算力板的版本直接在算力板读取相机，调用 \code{publish_external_video_stream} 将视频送入交互系统；持续输入后，可用 \code{subscribe_internal_video_desensed} 接收加工后的脱敏流。
+\section{阅读完整例程}
+本地 \code{examples/py/test_media.py} 提供配置查看、音频采集、播放和媒体流处理。C++ 对应 \code{examples/cpp/example_media.cpp}。运行前在 \code{bumi_deploy} 中编译好 \code{mediacontrol_py}。完整参数说明见\href{https://noetixrobotics.feishu.cn/docx/DSXLdLLOXo15vKx4baDcXOfTnue}{Bumi 音视频开发 MediaController}。

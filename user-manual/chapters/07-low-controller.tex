@@ -1,0 +1,110 @@
+\chapter{控制关节与部署策略}
+\setchapterheader{第\thechapter 章\quad 控制关节与部署策略}
+
+\label{chap:low}
+\begin{intro}
+理解 LowController 的关节命令、编号映射和发送缓冲区，阅读手柄输入与 ONNX 策略例程。
+\end{intro}
+\section{LowController 的作用}
+教育版开放 LowController，用户程序可以直接给出 21 个电机的目标位置、速度、力矩和 PD 增益。运控板负责把命令传给硬件，并上报实时状态。开发时用吊架支撑机器人，再检查关节映射和目标范围。
+\diagram{LowController 策略运行流程}{
+\begin{tikzpicture}[node distance=10mm]
+\node[box,text width=68mm] (state) {订阅硬件状态\\关节、IMU、手柄};
+\node[box,text width=68mm,below=of state] (obs) {状态估计与观测量组织};
+\node[box,text width=68mm,below=of obs] (policy) {策略推理或用户控制算法};
+\node[box,text width=68mm,below=of policy] (cmd) {关节映射、限幅与 MotorCmd 数组};
+\node[box,text width=68mm,below=of cmd] (dds) {set\_joint 写入缓冲\\SDK 按 2 ms 周期发送};
+\draw[flow] (state)--(obs);\draw[flow] (obs)--(policy);\draw[flow] (policy)--(cmd);\draw[flow] (cmd)--(dds);
+\end{tikzpicture}}
+\section{常用接口}
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.46\linewidth}P{0.45\linewidth}@{}}
+\toprule
+\textbf{接口} & \textbf{作用} \\
+\midrule\endhead
+\code{LowController::Instance()} & C++ 取得单例；Python 使用 \code{instance()} \\
+\code{init()} & 初始化控制器和通信 \\
+\code{set_joint(cmd)} & 更新含 21 个 MotorCmd 的关节命令数组 \\
+\code{getJointsIndex(name)} & 根据关节名称取得硬件索引 \\
+\code{subscribe_robot_hardware_status(callback)} & 注册硬件状态回调 \\
+\bottomrule\end{longtable}\endgroup
+
+C++ 的关节命令原型为：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+void set_joint(std::array<MotorCmd, 21> cmd);
+\end{command}
+\end{minipage}\par
+
+\code{set_joint} 更新最新命令缓冲区，SDK 的发送线程按约 2 ms 的周期读取缓冲并发布。算法更新频率与通信发送频率分别安排：每次有新目标，就更新完整关节数组。
+\section{关节命令的含义}
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+struct MotorCmd {
+    double pos;
+    double vel;
+    double tau;
+    double kp;
+    double kd;
+    uint16_t motor_id;
+};
+\end{command}
+\end{minipage}\par
+
+\code{pos} 为目标角度，单位 rad；\code{vel} 为目标角速度，\code{tau} 为力矩项；\code{kp}、\code{kd} 为位置与速度反馈增益。按 SDK 接口组织这六项，再将每个命令放到对应关节的位置。
+
+模型中的关节顺序可能与硬件数组不同。使用关节名称调用 \code{getJointsIndex}，把每个模型输出映射到正确的电机。附录\ref{app:joints}提供 21 个名称、编号与角度范围。
+\begin{concept}{弧度与角度}
+SDK 使用弧度，结构参数中也常见角度制。两者关系为 $\theta_{\rm rad}=\theta_{\rm deg}\pi/180$。例如 90° 等于约 1.571 rad。发送目标之前，把模型输出、默认姿态和关节范围统一到同一单位。
+\end{concept}
+\section{手柄输入}
+教育版可使用 AoLionDriver 读取本机手柄：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+from lowcontrol_py import AoLionDriver
+al = AoLionDriver()
+al.init("/dev/input/js0", 115200)
+remote = al.getremotedata()
+\end{command}
+\end{minipage}\par
+
+手柄数据包含 \code{axes[2]} 和 \code{button[14]}。本地例程把 \code{axes[1]} 用于前后运动，把 \code{axes[0]} 用于转向。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.43\linewidth}P{0.46\linewidth}@{}}
+\toprule
+\textbf{按键} & \textbf{数组索引} \\
+\midrule\endhead
+RB & 1 \\
+LB & 2 \\
+X & 5 \\
+Y & 6 \\
+B & 7 \\
+A & 8 \\
+加号 & 9 \\
+减号 & 10 \\
+左摇杆按下 & 12 \\
+\bottomrule\end{longtable}\endgroup
+
+按键索引只描述原始输入。某个组合键执行什么功能，由当前例程的控制逻辑决定。阅读程序时从 \code{button[index]} 的判断开始，再看它修改了哪一个模式或命令。
+\section{ONNX 策略例程}
+本地 C++ 策略源文件为 \code{examples/cpp/example_policy.cpp}，构建目标为 \code{build/example_policy}；Python 对应 \code{examples/py/test_policy.py}。模型默认放在 \code{policy/policy.onnx}。
+
+典型流程包括加载模型、读取策略参数、初始化关节姿态、组织观测量、执行推理、处理动作输出和更新关节命令。训练框架在\href{https://github.com/Noetix-Robotics/noetix_bumi_lab}{Bumi Lab 仓库}。
+\begin{enumerate}
+\item 对照配置中的关节名称和默认姿态，建立模型到硬件的索引映射。
+\item 核对观测量的顺序、缩放系数、历史帧和模型输入尺寸。
+\item 核对动作输出的缩放、默认姿态叠加方式及关节限幅。
+\item 在吊架上检查单次模式切换与目标变化，再开展运动测试。
+\end{enumerate}
+运行命令为：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+conda activate bumi_deploy
+cd ~/noetix_sdk_bumi
+python examples/py/test_policy.py
+\end{command}
+\end{minipage}\par
+
+退出前，按例程的状态切换流程让机器人进入稳定姿态，再结束进程。

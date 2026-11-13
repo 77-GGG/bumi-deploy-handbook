@@ -1,0 +1,76 @@
+\chapter{常见问题与排查}
+\setchapterheader{第\thechapter 章\quad 常见问题与排查}
+
+\begin{intro}
+按构建、模块加载、网络、动作和媒体的顺序定位问题，保留能说明当前状态的输出。
+\end{intro}
+\section{编译与模块加载}
+\begin{faq}{CMake 找不到 onnxruntime}
+检查 C++ 开发库是否已经安装，以及是否包含 CMake 配置文件。自定义安装位置通过 \code{onnxruntime_DIR} 指定。Python 能导入 onnxruntime，说明 Python 包可用；继续检查 CMake 使用的开发安装。
+\end{faq}
+\begin{faq}{ModuleNotFoundError: highcontrol\_py / lowcontrol\_py}
+先进入 SDK 根目录，检查 \code{build/} 中的扩展文件，再确认脚本把 \code{./build} 加到了搜索路径。用 \code{python -c "import sys; print(sys.executable)"} 检查是否为 \code{bumi_deploy} 的解释器。更换解释器后重新配置和构建扩展。
+\end{faq}
+\begin{faq}{ImportError 或 GLIBCXX 等原生库错误}
+使用 \code{ldd build/lowcontrol_py*.so} 查看依赖路径与 \code{not found} 项。根据输出补齐原生库，检查实际加载的是 Conda 库还是系统库，再统一构建与运行环境。
+\end{faq}
+\begin{faq}{运行时报缺少 libssl.so.1.1}
+官方手册提供 ARM 和 x86 两种 libssl1.1 安装包。用 \code{uname -m} 确认架构，从官方手册取得相应附件后安装。ARM 示例：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2.16_arm64.deb
+\end{command}
+\end{minipage}\par
+
+x86\_64 示例：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+\end{command}
+\end{minipage}\par
+
+\end{faq}
+\section{网络与状态订阅}
+\begin{faq}{能登录算力板，却收不到硬件状态}
+SSH 连接的是算力板，DDS 对端是运控板。继续检查到 \code{192.168.55.102} 的连接、路由、DDS Peer 和 \code{CYCLONEDDS_URI}。先运行只读状态示例，看到回调后再加入动作发送。
+\end{faq}
+\begin{faq}{外接主机和机器人发生地址冲突}
+核对 \code{ip -br addr}。算力板通常占用 \code{192.168.55.101}，运控板占用 \code{192.168.55.102}；为外接主机选择同网段的其他空闲地址，再测试连接。
+\end{faq}
+\section{动作与策略}
+\begin{faq}{按 START 后机器人失能}
+读取命令发出前的 \code{workmode}。START 只在失能状态 30 下执行使能，其他状态下执行失能。应用程序按状态决定是否发送，并对按键做边沿触发。
+\end{faq}
+\begin{faq}{示教播放总停在开头}
+检查是否在每个控制周期发送 PLAYTEACH。播放事件发送一次，之后继续发 DEFAULT；示教文件索引保持所需值。
+\end{faq}
+\begin{faq}{关节目标与预期部位不对应}
+检查模型输出顺序、关节名称、\code{getJointsIndex} 结果和 \code{motor_id}。把所有角度转换为 rad，再对照附录逐项检查范围。
+\end{faq}
+\begin{faq}{进入保护状态后动作不再执行}
+查看 IMU、工作模式和电机错误。先恢复机器人所需姿态及支撑条件，再按对应操作流程继续。调试日志应同时记录状态变化与发出的动作命令。
+\end{faq}
+\section{媒体与相机}
+\begin{faq}{修改配置后语音模块异常}
+检查音量、超时、数据开关等 agent 配置的调用间隔，让相邻调用至少间隔 500 ms。把配置写入从运动的 500 Hz 循环移到初始化或独立的用户操作流程中。
+\end{faq}
+\begin{faq}{外部音频播放不正确}
+核对播放数据为双通道、16000 Hz、小端 16 位且按通道交错排列。再确认外部音频到扬声器的开关，以及数组元素数量与时长字段是否一致。
+\end{faq}
+\begin{faq}{相机无法打开或画面被占用}
+检查系统的 \code{noetix-video-capture.service} 状态，停止原有采集后再启动自己的程序。结束开发时关闭自己的采集程序，再恢复系统服务。
+\end{faq}
+\section{保存一次运行记录}
+记录 Ubuntu 与 CPU 架构、SDK 版本、Python 路径、模型和配置版本，再保存完整报错及相关状态。下面的命令用于建立基本环境记录：
+\par\noindent\begin{minipage}{\linewidth}
+\begin{command}
+uname -a
+uname -m
+python --version
+python -c "import sys; print(sys.executable)"
+ip -br addr
+ip route
+\end{command}
+\end{minipage}\par
+
+针对动作问题，增加工作模式、指令时间、电机错误码和 IMU；针对媒体问题，增加媒体状态、错误消息、流格式和配置调用时间。

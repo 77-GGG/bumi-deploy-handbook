@@ -1,0 +1,66 @@
+\chapter{关节参数}
+\setchapterheader{附录 B\quad 关节参数}
+\label{app:joints}
+\small\renewcommand{\arraystretch}{1.12}
+\section{编号、名称与扭矩}
+关节名称用于模型映射，编号对应官方参数表。下面的扭矩为官方逐关节表列出的数值，单位 N·m。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.09\linewidth}P{0.33\linewidth}P{0.31\linewidth}P{0.15\linewidth}@{}}
+\toprule
+\textbf{编号} & \textbf{名称} & \textbf{关节} & \textbf{扭矩} \\
+\midrule\endhead
+0 & \code{arm_l1_joint} & 左肩 pitch & 5 \\
+1 & \code{arm_l2_joint} & 左肩 roll & 5 \\
+2 & \code{arm_l3_joint} & 左臂 yaw & 5 \\
+3 & \code{arm_l4_joint} & 左肘 pitch & 5 \\
+4 & \code{leg_l1_joint} & 左髋 pitch & 60 \\
+5 & \code{leg_l2_joint} & 左髋 roll & 60 \\
+6 & \code{leg_l3_joint} & 左大腿 yaw & 15 \\
+7 & \code{leg_l4_joint} & 左膝 pitch & 60 \\
+8 & \code{leg_l5_joint} & 左踝 pitch & 30 \\
+9 & \code{leg_l6_joint} & 左踝 roll & 30 \\
+10 & \code{arm_r1_joint} & 右肩 pitch & 5 \\
+11 & \code{arm_r2_joint} & 右肩 roll & 5 \\
+12 & \code{arm_r3_joint} & 右臂 yaw & 5 \\
+13 & \code{arm_r4_joint} & 右肘 pitch & 5 \\
+14 & \code{leg_r1_joint} & 右髋 pitch & 60 \\
+15 & \code{leg_r2_joint} & 右髋 roll & 60 \\
+16 & \code{leg_r3_joint} & 右大腿 yaw & 15 \\
+17 & \code{leg_r4_joint} & 右膝 pitch & 60 \\
+18 & \code{leg_r5_joint} & 右踝 pitch & 30 \\
+19 & \code{leg_r6_joint} & 右踝 roll & 30 \\
+20 & \code{waist_1_joint} & 腰 yaw & 27 \\
+\bottomrule\end{longtable}\endgroup
+
+\section{角度范围}
+单位分别为度和弧度。弧度值按官方表中的精度保留；程序中的目标位置采用 rad。
+
+\begingroup\small\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{@{}P{0.09\linewidth}P{0.26\linewidth}P{0.26\linewidth}P{0.27\linewidth}@{}}
+\toprule
+\textbf{编号} & \textbf{关节} & \textbf{最小 / 最大（°）} & \textbf{最小 / 最大（rad）} \\
+\midrule\endhead
+0 & 左肩 pitch & -135 / 135 & -2.36 / 2.36 \\
+1 & 左肩 roll & -8 / 111 & -0.14 / 1.94 \\
+2 & 左臂 yaw & -90 / 90 & -1.57 / 1.57 \\
+3 & 左肘 pitch & -129 / 0 & -2.26 / 0.00 \\
+4 & 左髋 pitch & -120 / 120 & -2.09 / 2.09 \\
+5 & 左髋 roll & -38 / 90 & -0.66 / 1.57 \\
+6 & 左大腿 yaw & -145 / 145 & -2.53 / 2.53 \\
+7 & 左膝 pitch & 0 / 128 & 0.00 / 2.24 \\
+8 & 左踝 pitch & -55 / 25 & -0.96 / 0.44 \\
+9 & 左踝 roll & -10 / 10 & -0.17 / 0.17 \\
+10 & 右肩 pitch & -135 / 135 & -2.36 / 2.36 \\
+11 & 右肩 roll & -111 / 8 & -1.94 / 0.14 \\
+12 & 右臂 yaw & -90 / 90 & -1.57 / 1.57 \\
+13 & 右肘 pitch & -129 / 0 & -2.26 / 0.00 \\
+14 & 右髋 pitch & -120 / 120 & -2.09 / 2.09 \\
+15 & 右髋 roll & -90 / 38 & -1.57 / 0.66 \\
+16 & 右大腿 yaw & -145 / 145 & -2.53 / 2.53 \\
+17 & 右膝 pitch & 0 / 128 & 0.00 / 2.24 \\
+18 & 右踝 pitch & -55 / 25 & -0.96 / 0.44 \\
+19 & 右踝 roll & -10 / 10 & -0.17 / 0.17 \\
+20 & 腰 yaw & -90 / 90 & -1.57 / 1.57 \\
+\bottomrule\end{longtable}\endgroup
+\normalsize\renewcommand{\arraystretch}{1.25}
